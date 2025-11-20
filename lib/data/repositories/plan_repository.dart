@@ -151,14 +151,24 @@ class PlanRepository implements IPlanRepository {
 
   @override
   Future<bool> deletePlan(String planId) async {
+    print('[PlanRepository] deletePlan called with planId: $planId');
     // Note: This is a soft delete
+    print('[PlanRepository] Fetching plan from DAO...');
     final plan = await _planDao.getPlanById(planId);
-    if (plan == null) return false;
+    if (plan == null) {
+      print('[PlanRepository] Plan not found in DAO');
+      return false;
+    }
+    print('[PlanRepository] Plan found: ${plan.name}, goalId: ${plan.goalId}');
 
     // Remove plan from goal
+    print('[PlanRepository] Removing plan from goal...');
     await _goalRepository.removePlanFromGoal(plan.goalId, planId);
+    print('[PlanRepository] Plan removed from goal');
 
+    print('[PlanRepository] Calling DAO.deletePlan...');
     final result = await _planDao.deletePlan(planId);
+    print('[PlanRepository] DAO delete result: $result');
     return result > 0;
   }
 

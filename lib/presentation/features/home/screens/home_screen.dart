@@ -4,6 +4,7 @@ import 'package:myassistant/presentation/features/tasks/screens/tasks_screen.dar
 import 'package:myassistant/presentation/features/planning/screens/planning_screen.dart';
 import 'package:myassistant/presentation/features/review/screens/review_screen.dart';
 import 'package:myassistant/presentation/features/profile/screens/profile_screen.dart';
+import 'package:myassistant/presentation/features/planning/widgets/create_goal_dialog.dart';
 
 /// Main home screen with bottom navigation
 class HomeScreen extends ConsumerStatefulWidget {
@@ -119,13 +120,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return null;
   }
 
-  void _showAddGoalDialog() {
-    showDialog(
+  void _showAddGoalDialog() async {
+    final result = await showDialog<bool>(
       context: context,
-      builder: (context) {
-        return const _ComingSoonDialog(feature: '添加目标');
-      },
+      barrierDismissible: false,
+      builder: (context) => const CreateGoalDialog(),
     );
+
+    if (result == true && mounted) {
+      // Goal created successfully, refresh might happen via provider
+      // The planning screen will automatically refresh via Riverpod
+    }
   }
 
   void _showAboutDialog() {
@@ -243,26 +248,5 @@ class _QuickAddTaskSheetState extends ConsumerState<_QuickAddTaskSheet> {
       ),
     );
     Navigator.pop(context);
-  }
-}
-
-/// Coming soon dialog placeholder
-class _ComingSoonDialog extends StatelessWidget {
-  final String feature;
-
-  const _ComingSoonDialog({required this.feature});
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(feature),
-      content: const Text('该功能即将推出！'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('确定'),
-        ),
-      ],
-    );
   }
 }

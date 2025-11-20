@@ -125,7 +125,7 @@ class AppDatabase implements DatabaseInterface {
       )
     ''');
 
-    // Goals table
+    // Goals table (uses status='deleted' for soft delete, no need for is_deleted)
     batch.execute('''
       CREATE TABLE goals (
         id TEXT PRIMARY KEY,
@@ -135,14 +135,14 @@ class AppDatabase implements DatabaseInterface {
         tags TEXT,
         deadline INTEGER,
         priority TEXT NOT NULL DEFAULT 'medium',
-        status TEXT NOT NULL DEFAULT 'inProgress',
+        status TEXT NOT NULL DEFAULT 'active',
         success_criteria TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         deleted_at INTEGER,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         CHECK (priority IN ('high', 'medium', 'low')),
-        CHECK (status IN ('inProgress', 'paused', 'completed'))
+        CHECK (status IN ('active', 'paused', 'completed', 'deleted'))
       )
     ''');
 
@@ -159,6 +159,7 @@ class AppDatabase implements DatabaseInterface {
         repeat_type TEXT NOT NULL,
         custom_days INTEGER,
         task_config TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         deleted_at INTEGER,
@@ -170,11 +171,12 @@ class AppDatabase implements DatabaseInterface {
         FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE,
         CHECK (repeat_type IN ('oneTime', 'daily', 'weekly', 'monthly', 'custom')),
         CHECK (end_date >= start_date),
-        CHECK (custom_days IS NULL OR custom_days > 0)
+        CHECK (custom_days IS NULL OR custom_days > 0),
+        CHECK (status IN ('active', 'paused', 'completed', 'deleted'))
       )
     ''');
 
-    // Tasks table - no deletion support, with repeat execution tracking
+    // Tasks table - with soft delete support
     batch.execute('''
       CREATE TABLE tasks (
         id TEXT PRIMARY KEY,
@@ -192,12 +194,11 @@ class AppDatabase implements DatabaseInterface {
         actual_duration_minutes INTEGER,
         evaluation_result TEXT,
         execution_note TEXT,
-        repeat_execution_count INTEGER DEFAULT 0,
-        original_task_id TEXT,
         created_at INTEGER NOT NULL,
+        deleted_at INTEGER,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE CASCADE,
-        CHECK (status IN ('active', 'completed', 'skipped')),
+        CHECK (status IN ('active', 'completed', 'skipped', 'deleted')),
         CHECK (window_end_time >= window_start_time)
       )
     ''');
@@ -215,27 +216,6 @@ class AppDatabase implements DatabaseInterface {
         created_at INTEGER NOT NULL,
         FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      )
-    ''');
-
-    // Task executions table - stores detailed execution history
-    batch.execute('''
-      CREATE TABLE task_executions (
-        id TEXT PRIMARY KEY,
-        task_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        execution_type TEXT NOT NULL,
-        started_at INTEGER NOT NULL,
-        completed_at INTEGER,
-        duration_minutes INTEGER,
-        counter_value INTEGER,
-        evaluation_score TEXT,
-        notes TEXT,
-        execution_data TEXT,
-        created_at INTEGER NOT NULL,
-        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        CHECK (execution_type IN ('simple', 'timer', 'counter', 'evaluation', 'timerWithCount', 'countWithEvaluation'))
       )
     ''');
 
@@ -262,37 +242,31 @@ class AppDatabase implements DatabaseInterface {
     batch.execute('CREATE INDEX idx_users_username ON users(username)');
     batch.execute('CREATE INDEX idx_users_status ON users(status) WHERE deleted_at IS NULL');
 
-    // Goals indexes
-    batch.execute('CREATE INDEX idx_goals_user_id ON goals(user_id) WHERE deleted_at IS NULL');
-    batch.execute('CREATE INDEX idx_goals_status ON goals(status) WHERE deleted_at IS NULL');
-    batch.execute('CREATE INDEX idx_goals_priority ON goals(priority) WHERE deleted_at IS NULL');
-    batch.execute('CREATE INDEX idx_goals_deadline ON goals(deadline) WHERE deleted_at IS NULL');
+    // Goals indexes (filter by status != 'deleted' instead of is_deleted)
+    batch.execute("CREATE INDEX idx_goals_user_id ON goals(user_id) WHERE status != 'deleted'");
+    batch.execute("CREATE INDEX idx_goals_status ON goals(status) WHERE status != 'deleted'");
+    batch.execute("CREATE INDEX idx_goals_priority ON goals(priority) WHERE status != 'deleted'");
+    batch.execute("CREATE INDEX idx_goals_deadline ON goals(deadline) WHERE status != 'deleted'");
 
     // Plans indexes
-    batch.execute('CREATE INDEX idx_plans_user_id ON plans(user_id) WHERE deleted_at IS NULL');
-    batch.execute('CREATE INDEX idx_plans_goal_id ON plans(goal_id) WHERE deleted_at IS NULL');
-    batch.execute('CREATE INDEX idx_plans_active ON plans(start_date, end_date) WHERE deleted_at IS NULL');
-    batch.execute('CREATE UNIQUE INDEX idx_plans_user_name ON plans(user_id, name) WHERE deleted_at IS NULL');
+    batch.execute('CREATE INDEX idx_plans_user_id ON plans(user_id) WHERE status != \'deleted\'');
+    batch.execute('CREATE INDEX idx_plans_goal_id ON plans(goal_id) WHERE status != \'deleted\'');
+    batch.execute('CREATE INDEX idx_plans_active ON plans(start_date, end_date) WHERE status != \'deleted\'');
+    batch.execute('CREATE UNIQUE INDEX idx_plans_user_name ON plans(user_id, name) WHERE status != \'deleted\'');
 
     // Tasks indexes
-    batch.execute('CREATE INDEX idx_tasks_user_id ON tasks(user_id)');
-    batch.execute('CREATE INDEX idx_tasks_plan_id ON tasks(plan_id)');
-    batch.execute('CREATE INDEX idx_tasks_status ON tasks(status)');
-    batch.execute('CREATE INDEX idx_tasks_window ON tasks(window_start_time, window_end_time)');
-    batch.execute('CREATE INDEX idx_tasks_user_status ON tasks(user_id, status)');
-    batch.execute('CREATE INDEX idx_tasks_plan_status ON tasks(plan_id, status)');
-    batch.execute('CREATE INDEX idx_tasks_user_window_status ON tasks(user_id, window_start_time, status)');
+    batch.execute('CREATE INDEX idx_tasks_user_id ON tasks(user_id) WHERE status != \'deleted\'');
+    batch.execute('CREATE INDEX idx_tasks_plan_id ON tasks(plan_id) WHERE status != \'deleted\'');
+    batch.execute('CREATE INDEX idx_tasks_status ON tasks(status) WHERE status != \'deleted\'');
+    batch.execute('CREATE INDEX idx_tasks_window ON tasks(window_start_time, window_end_time) WHERE status != \'deleted\'');
+    batch.execute('CREATE INDEX idx_tasks_user_status ON tasks(user_id, status) WHERE status != \'deleted\'');
+    batch.execute('CREATE INDEX idx_tasks_plan_status ON tasks(plan_id, status) WHERE status != \'deleted\'');
+    batch.execute('CREATE INDEX idx_tasks_user_window_status ON tasks(user_id, window_start_time, status) WHERE status != \'deleted\'');
 
     // Task history indexes
     batch.execute('CREATE INDEX idx_task_history_task_id ON task_history(task_id)');
     batch.execute('CREATE INDEX idx_task_history_user_id ON task_history(user_id)');
     batch.execute('CREATE INDEX idx_task_history_created_at ON task_history(created_at)');
-
-    // Task executions indexes
-    batch.execute('CREATE INDEX idx_task_executions_task_id ON task_executions(task_id)');
-    batch.execute('CREATE INDEX idx_task_executions_user_id ON task_executions(user_id)');
-    batch.execute('CREATE INDEX idx_task_executions_started_at ON task_executions(started_at)');
-    batch.execute('CREATE INDEX idx_task_executions_type ON task_executions(execution_type)');
   }
 
   /// Create initial demo user
@@ -328,8 +302,8 @@ class AppDatabase implements DatabaseInterface {
         g.title as goal_title,
         g.priority as goal_priority
       FROM tasks t
-      INNER JOIN plans p ON t.plan_id = p.id AND p.deleted_at IS NULL
-      INNER JOIN goals g ON p.goal_id = g.id AND g.deleted_at IS NULL
+      INNER JOIN plans p ON t.plan_id = p.id AND p.status != 'deleted'
+      INNER JOIN goals g ON p.goal_id = g.id AND g.status != 'deleted'
       WHERE t.status = 'active'
         AND datetime('now') BETWEEN datetime(t.window_start_time, 'unixepoch')
                                  AND datetime(t.window_end_time, 'unixepoch')
@@ -348,8 +322,8 @@ class AppDatabase implements DatabaseInterface {
         SUM(p.completed_task_count) as total_completed_tasks,
         SUM(p.total_task_count) as total_tasks
       FROM goals g
-      LEFT JOIN plans p ON g.id = p.goal_id AND p.deleted_at IS NULL
-      WHERE g.deleted_at IS NULL
+      LEFT JOIN plans p ON g.id = p.goal_id AND p.status != 'deleted'
+      WHERE g.status != 'deleted'
       GROUP BY g.id
     ''');
 
@@ -366,6 +340,7 @@ class AppDatabase implements DatabaseInterface {
         AVG(CASE WHEN status = 'completed' AND actual_duration_minutes IS NOT NULL
                  THEN actual_duration_minutes ELSE NULL END) as avg_duration
       FROM tasks
+      WHERE status != 'deleted'
       GROUP BY user_id, date(window_start_time, 'unixepoch')
     ''');
   }
@@ -473,52 +448,10 @@ class AppDatabase implements DatabaseInterface {
     ''');
   }
 
-  /// Upgrade database
+  /// Upgrade database (no migrations in development mode)
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    print('[AppDatabase] Upgrading database from version $oldVersion to $newVersion');
-
-    final batch = db.batch();
-
-    // Migration from version 1 to 2
-    if (oldVersion < 2) {
-      print('[AppDatabase] Running migration for version 2');
-
-      // Add task_executions table
-      batch.execute('''
-        CREATE TABLE IF NOT EXISTS task_executions (
-          id TEXT PRIMARY KEY,
-          task_id TEXT NOT NULL,
-          user_id TEXT NOT NULL,
-          execution_type TEXT NOT NULL,
-          started_at INTEGER NOT NULL,
-          completed_at INTEGER,
-          duration_minutes INTEGER,
-          counter_value INTEGER,
-          evaluation_score TEXT,
-          notes TEXT,
-          execution_data TEXT,
-          created_at INTEGER NOT NULL,
-          FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-          CHECK (execution_type IN ('simple', 'timer', 'counter', 'evaluation', 'timerWithCount', 'countWithEvaluation'))
-        )
-      ''');
-
-      // Add indexes for task_executions
-      batch.execute('CREATE INDEX IF NOT EXISTS idx_task_executions_task_id ON task_executions(task_id)');
-      batch.execute('CREATE INDEX IF NOT EXISTS idx_task_executions_user_id ON task_executions(user_id)');
-      batch.execute('CREATE INDEX IF NOT EXISTS idx_task_executions_started_at ON task_executions(started_at)');
-      batch.execute('CREATE INDEX IF NOT EXISTS idx_task_executions_type ON task_executions(execution_type)');
-
-      // Create views if they don't exist
-      _createViews(batch);
-
-      // Create triggers if they don't exist
-      _createTriggers(batch);
-    }
-
-    await batch.commit(noResult: true);
-    print('[AppDatabase] Database upgrade completed');
+    print('[AppDatabase] Database upgrade not supported in development mode');
+    print('[AppDatabase] Please clear app data and reinstall for schema changes');
   }
 
   /// Close database connection

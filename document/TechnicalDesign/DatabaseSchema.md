@@ -65,6 +65,9 @@ CREATE TABLE user_settings (
 
 ### 2.3 目标表（goals）
 
+**重要说明**: 目标表使用 `status='deleted'` 进行软删除，而不是单独的 `is_deleted` 字段。
+这是因为 GoalStatus 枚举已经包含了 `deleted` 状态。
+
 ```sql
 CREATE TABLE goals (
     id TEXT PRIMARY KEY,                    -- UUID
@@ -74,25 +77,27 @@ CREATE TABLE goals (
     tags TEXT,                              -- 标签(JSON数组)
     deadline INTEGER,                       -- 截止日期
     priority TEXT NOT NULL DEFAULT 'medium', -- 优先级: high/medium/low
-    status TEXT NOT NULL DEFAULT 'inProgress', -- 状态
+    status TEXT NOT NULL DEFAULT 'active',     -- 状态: active/paused/completed/deleted
     success_criteria TEXT,                  -- 成功标准
     created_at INTEGER NOT NULL,            -- 创建时间
     updated_at INTEGER NOT NULL,            -- 更新时间
-    deleted_at INTEGER,                     -- 删除时间(软删除)
+    deleted_at INTEGER,                     -- 删除时间(用于审计跟踪)
 
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CHECK (priority IN ('high', 'medium', 'low')),
-    CHECK (status IN ('inProgress', 'paused', 'completed'))
+    CHECK (status IN ('active', 'paused', 'completed', 'deleted'))
 );
 
--- 索引
-CREATE INDEX idx_goals_user_id ON goals(user_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_goals_status ON goals(status) WHERE deleted_at IS NULL;
-CREATE INDEX idx_goals_priority ON goals(priority) WHERE deleted_at IS NULL;
-CREATE INDEX idx_goals_deadline ON goals(deadline) WHERE deleted_at IS NULL;
+-- 索引（使用 status 字段过滤已删除的记录）
+CREATE INDEX idx_goals_user_id ON goals(user_id) WHERE status != 'deleted';
+CREATE INDEX idx_goals_status ON goals(status) WHERE status != 'deleted';
+CREATE INDEX idx_goals_priority ON goals(priority) WHERE status != 'deleted';
+CREATE INDEX idx_goals_deadline ON goals(deadline) WHERE status != 'deleted';
 ```
 
 ### 2.4 计划表（plans）
+
+**重要说明**: 计划表使用 `status='deleted'` 进行软删除，与 Goal 表保持一致。
 
 ```sql
 CREATE TABLE plans (
@@ -106,9 +111,10 @@ CREATE TABLE plans (
     repeat_type TEXT NOT NULL,              -- 重复类型
     custom_days INTEGER,                    -- 自定义天数
     task_config TEXT NOT NULL,              -- 任务配置(JSON)
+    status TEXT NOT NULL DEFAULT 'active',  -- 状态: active/paused/completed/deleted
     created_at INTEGER NOT NULL,            -- 创建时间
     updated_at INTEGER NOT NULL,            -- 更新时间
-    deleted_at INTEGER,                     -- 删除时间(软删除)
+    deleted_at INTEGER,                     -- 删除时间(用于审计跟踪)
 
     -- 统计字段(冗余存储，提高查询性能)
     total_task_count INTEGER DEFAULT 0,     -- 总任务数
@@ -120,17 +126,31 @@ CREATE TABLE plans (
     FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE,
     CHECK (repeat_type IN ('oneTime', 'daily', 'weekly', 'monthly', 'custom')),
     CHECK (end_date >= start_date),
-    CHECK (custom_days IS NULL OR custom_days > 0)
+    CHECK (custom_days IS NULL OR custom_days > 0),
+    CHECK (status IN ('active', 'paused', 'completed', 'deleted'))
 );
 
--- 索引
-CREATE INDEX idx_plans_user_id ON plans(user_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_plans_goal_id ON plans(goal_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_plans_active ON plans(start_date, end_date) WHERE deleted_at IS NULL;
-CREATE UNIQUE INDEX idx_plans_user_name ON plans(user_id, name) WHERE deleted_at IS NULL;
+-- 索引（使用 status 字段过滤已删除的记录）
+CREATE INDEX idx_plans_user_id ON plans(user_id) WHERE status != 'deleted';
+CREATE INDEX idx_plans_goal_id ON plans(goal_id) WHERE status != 'deleted';
+CREATE INDEX idx_plans_active ON plans(start_date, end_date) WHERE status != 'deleted';
+CREATE UNIQUE INDEX idx_plans_user_name ON plans(user_id, name) WHERE status != 'deleted';
+CREATE INDEX idx_plans_status ON plans(status) WHERE status != 'deleted';
 ```
 
 ### 2.5 任务表（tasks）
+
+**设计理念**：
+- 每个任务都是独立的实体,没有父子关系
+- **支持软删除**（当所属计划被删除时）
+- 任务"重复执行"通过创建新的独立任务实现,而非在原任务上记录多次执行
+
+**重要说明**：
+- ❌ 没有 `repeat_execution_count` 字段
+- ❌ 没有 `original_task_id` 字段
+- ❌ 不再有 `task_executions` 表
+- ✅ 每次用户想"再次执行"时,系统会创建一个全新的任务(新ID),复制原任务的配置
+- ✅ 任务使用 `status='deleted'` 进行软删除，当所属计划被删除时会级联软删除
 
 ```sql
 CREATE TABLE tasks (
@@ -142,30 +162,31 @@ CREATE TABLE tasks (
     config TEXT NOT NULL,                   -- 任务配置(JSON)
     window_start_time INTEGER NOT NULL,     -- 执行窗口开始
     window_end_time INTEGER NOT NULL,       -- 执行窗口结束
-    status TEXT NOT NULL DEFAULT 'active',  -- 状态
-    current_count INTEGER DEFAULT 0,        -- 当前计数
+    status TEXT NOT NULL DEFAULT 'active',  -- 状态: active/completed/skipped/deleted
+    current_count INTEGER DEFAULT 0,        -- 当前计数(用于计数类任务)
     completed_at INTEGER,                   -- 完成时间
     skipped_at INTEGER,                     -- 跳过时间
-    actual_duration_minutes INTEGER,        -- 实际执行时长
-    evaluation_result TEXT,                 -- 评价结果
+    actual_duration_minutes INTEGER,        -- 实际执行时长(计时任务)
+    evaluation_result TEXT,                 -- 评价结果(评价任务)
     execution_note TEXT,                    -- 执行备注
     created_at INTEGER NOT NULL,            -- 创建时间
+    deleted_at INTEGER,                     -- 删除时间(用于审计跟踪)
 
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE CASCADE,
-    CHECK (status IN ('active', 'completed', 'skipped')),
+    CHECK (status IN ('active', 'completed', 'skipped', 'deleted')),
     CHECK (window_end_time >= window_start_time)
 );
 
--- 索引
-CREATE INDEX idx_tasks_user_id ON tasks(user_id);
-CREATE INDEX idx_tasks_plan_id ON tasks(plan_id);
-CREATE INDEX idx_tasks_status ON tasks(status);
-CREATE INDEX idx_tasks_window ON tasks(window_start_time, window_end_time);
-CREATE INDEX idx_tasks_user_status ON tasks(user_id, status);
-CREATE INDEX idx_tasks_plan_status ON tasks(plan_id, status);
+-- 索引（使用 status 字段过滤已删除的记录）
+CREATE INDEX idx_tasks_user_id ON tasks(user_id) WHERE status != 'deleted';
+CREATE INDEX idx_tasks_plan_id ON tasks(plan_id) WHERE status != 'deleted';
+CREATE INDEX idx_tasks_status ON tasks(status) WHERE status != 'deleted';
+CREATE INDEX idx_tasks_window ON tasks(window_start_time, window_end_time) WHERE status != 'deleted';
+CREATE INDEX idx_tasks_user_status ON tasks(user_id, status) WHERE status != 'deleted';
+CREATE INDEX idx_tasks_plan_status ON tasks(plan_id, status) WHERE status != 'deleted';
 -- 复合索引优化常用查询
-CREATE INDEX idx_tasks_user_window_status ON tasks(user_id, window_start_time, status);
+CREATE INDEX idx_tasks_user_window_status ON tasks(user_id, window_start_time, status) WHERE status != 'deleted';
 ```
 
 ### 2.6 任务历史表（task_history）
@@ -193,6 +214,77 @@ CREATE INDEX idx_task_history_user_id ON task_history(user_id);
 CREATE INDEX idx_task_history_created_at ON task_history(created_at);
 ```
 
+**任务历史表特点**：
+- 由数据库 trigger 自动维护,无需手动插入
+- 记录所有任务状态变更,用于审计和分析
+- 支持查询任务的完整生命周期
+
+### 2.7 任务重复执行设计
+
+#### 设计理念
+
+**核心原则**: 没有"重复执行(repeat execution)"概念,每次执行都是独立的新任务
+
+#### 实现方式
+
+当用户想要"再次执行"一个已完成的任务时:
+
+1. **检查前置条件**:
+   - 原任务状态必须为 `completed`
+   - 原任务必须仍在时间窗口内 (`isInCurrentWindow`)
+
+2. **创建新任务**:
+   ```dart
+   // 复制原任务的配置,生成新ID
+   TaskModel newTask = TaskModel(
+     id: generateNewUUID(),           // 全新的UUID
+     userId: original.userId,
+     planId: original.planId,
+     name: original.name,             // 复制名称
+     description: original.description,
+     config: original.config,         // 复制配置
+     windowStartTime: original.windowStartTime,
+     windowEndTime: original.windowEndTime,
+     status: TaskStatus.active,       // 新任务默认active
+     currentCount: 0,                 // 重置计数
+     createdAt: DateTime.now(),       // 新的创建时间
+   );
+   ```
+
+3. **关键特性**:
+   - ✅ 新任务有独立的 `id`
+   - ✅ 新任务有独立的状态生命周期
+   - ✅ 两个任务之间**没有任何关联关系**
+   - ✅ 可以在数据库中独立查询、更新、删除
+
+#### 数据库层面
+
+- ❌ 不使用外键关联原任务
+- ❌ 不记录任务之间的父子关系
+- ❌ 不需要 `task_executions` 表
+- ✅ 每个任务都是平等的、独立的记录
+
+#### 业务逻辑
+
+```dart
+// TaskDao.createRepeatExecution()
+Future<TaskModel?> createRepeatExecution(String originalTaskId) async {
+  final originalTask = await getTaskById(originalTaskId);
+
+  // 验证条件
+  if (originalTask.status != TaskStatus.completed) return null;
+  if (!originalTask.isInCurrentWindow) return null;
+
+  // 创建新任务
+  final newTask = TaskModel(
+    id: _uuid.v4(),  // 新UUID
+    // ... 复制配置
+  );
+
+  return await insertTask(newTask);
+}
+```
+
 ## 3. 视图设计
 
 ### 3.1 活跃任务视图
@@ -206,8 +298,8 @@ SELECT
     g.title as goal_title,
     g.priority as goal_priority
 FROM tasks t
-INNER JOIN plans p ON t.plan_id = p.id AND p.deleted_at IS NULL
-INNER JOIN goals g ON p.goal_id = g.id AND g.deleted_at IS NULL
+INNER JOIN plans p ON t.plan_id = p.id AND p.status != 'deleted'
+INNER JOIN goals g ON p.goal_id = g.id AND g.status != 'deleted'
 WHERE t.status = 'active'
   AND datetime('now') BETWEEN datetime(t.window_start_time, 'unixepoch')
                            AND datetime(t.window_end_time, 'unixepoch');
@@ -227,8 +319,8 @@ SELECT
     SUM(p.completed_task_count) as total_completed_tasks,
     SUM(p.total_task_count) as total_tasks
 FROM goals g
-LEFT JOIN plans p ON g.id = p.goal_id AND p.deleted_at IS NULL
-WHERE g.deleted_at IS NULL
+LEFT JOIN plans p ON g.id = p.goal_id AND p.status != 'deleted'
+WHERE g.status != 'deleted'
 GROUP BY g.id;
 ```
 
@@ -246,6 +338,7 @@ SELECT
     AVG(CASE WHEN status = 'completed' AND actual_duration_minutes IS NOT NULL
              THEN actual_duration_minutes ELSE NULL END) as avg_duration
 FROM tasks
+WHERE status != 'deleted'
 GROUP BY user_id, date(window_start_time, 'unixepoch');
 ```
 
@@ -531,8 +624,16 @@ class TaskDao implements BaseDao<Task> {
 
   @override
   Future<void> softDelete(String id) async {
-    // 任务表不使用软删除
-    await delete(id);
+    // 任务表使用软删除（当所属计划被删除时）
+    await _db.update(
+      'tasks',
+      {
+        'status': 'deleted',
+        'deleted_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // 特定查询方法
@@ -550,8 +651,8 @@ class TaskDao implements BaseDao<Task> {
   Future<List<Task>> getTasksByPlanId(String planId) async {
     final maps = await _db.query(
       'tasks',
-      where: 'plan_id = ?',
-      whereArgs: [planId],
+      where: 'plan_id = ? AND status != ?',
+      whereArgs: [planId, 'deleted'],
       orderBy: 'created_at DESC',
     );
 
@@ -561,8 +662,8 @@ class TaskDao implements BaseDao<Task> {
   Future<Task?> getLastTaskForPlan(String planId) async {
     final maps = await _db.query(
       'tasks',
-      where: 'plan_id = ?',
-      whereArgs: [planId],
+      where: 'plan_id = ? AND status != ?',
+      whereArgs: [planId, 'deleted'],
       orderBy: 'created_at DESC',
       limit: 1,
     );
@@ -593,8 +694,8 @@ class TaskDao implements BaseDao<Task> {
 
     final maps = await _db.query(
       'tasks',
-      where: 'user_id = ? AND window_start_time >= ? AND window_start_time <= ?',
-      whereArgs: [userId, startTimestamp, endTimestamp],
+      where: 'user_id = ? AND window_start_time >= ? AND window_start_time <= ? AND status != ?',
+      whereArgs: [userId, startTimestamp, endTimestamp, 'deleted'],
       orderBy: 'window_start_time ASC',
     );
 
@@ -946,7 +1047,7 @@ class DataIntegrityChecker {
     final orphanedTasks = await _db.rawQuery('''
       SELECT t.id FROM tasks t
       LEFT JOIN plans p ON t.plan_id = p.id
-      WHERE p.id IS NULL
+      WHERE p.id IS NULL AND t.status != 'deleted'
     ''');
 
     if (orphanedTasks.isNotEmpty) {
@@ -957,7 +1058,7 @@ class DataIntegrityChecker {
     final orphanedPlans = await _db.rawQuery('''
       SELECT p.id FROM plans p
       LEFT JOIN goals g ON p.goal_id = g.id
-      WHERE g.id IS NULL AND p.deleted_at IS NULL
+      WHERE g.id IS NULL AND p.status != 'deleted'
     ''');
 
     if (orphanedPlans.isNotEmpty) {
@@ -973,8 +1074,8 @@ class DataIntegrityChecker {
     // 检查没有关联计划的目标
     final emptyGoals = await _db.rawQuery('''
       SELECT g.id FROM goals g
-      LEFT JOIN plans p ON g.id = p.goal_id
-      WHERE p.id IS NULL AND g.deleted_at IS NULL
+      LEFT JOIN plans p ON g.id = p.goal_id AND p.status != 'deleted'
+      WHERE p.id IS NULL AND g.status != 'deleted'
       GROUP BY g.id
     ''');
 
@@ -997,8 +1098,8 @@ class DataIntegrityChecker {
         COUNT(t.id) as actual_total,
         SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) as actual_completed
       FROM plans p
-      LEFT JOIN tasks t ON p.id = t.plan_id
-      WHERE p.deleted_at IS NULL
+      LEFT JOIN tasks t ON p.id = t.plan_id AND t.status != 'deleted'
+      WHERE p.status != 'deleted'
       GROUP BY p.id
       HAVING p.total_task_count != actual_total
           OR p.completed_task_count != actual_completed
@@ -1038,11 +1139,12 @@ class DataIntegrityChecker {
   // 修复数据问题
   Future<void> fixIntegrityIssues(IntegrityReport report) async {
     await _db.transaction((txn) async {
-      // 删除孤立记录
+      // 软删除孤立记录
       if (report.foreignKeyViolations.isNotEmpty) {
         await txn.rawQuery('''
-          DELETE FROM tasks
-          WHERE plan_id NOT IN (SELECT id FROM plans WHERE deleted_at IS NULL)
+          UPDATE tasks
+          SET status = 'deleted', deleted_at = strftime('%s', 'now')
+          WHERE plan_id NOT IN (SELECT id FROM plans WHERE status != 'deleted')
         ''');
       }
 
@@ -1051,7 +1153,7 @@ class DataIntegrityChecker {
         await txn.rawQuery('''
           UPDATE plans
           SET total_task_count = (
-            SELECT COUNT(*) FROM tasks WHERE plan_id = plans.id
+            SELECT COUNT(*) FROM tasks WHERE plan_id = plans.id AND status != 'deleted'
           ),
           completed_task_count = (
             SELECT COUNT(*) FROM tasks

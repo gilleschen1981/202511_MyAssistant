@@ -31,7 +31,8 @@ class GoalModel extends Equatable {
   // Associated relationships
   final List<String> planIds;
 
-  // Soft delete support
+  // Soft delete support (via status field - GoalStatus.deleted)
+  // Note: deletedAt timestamp still tracked separately for audit
   final DateTime? deletedAt;
 
   const GoalModel({
@@ -52,6 +53,7 @@ class GoalModel extends Equatable {
 
   // Computed properties
   int get planCount => planIds.length;
+  bool get isDeleted => status == GoalStatus.deleted;
 
   int? get daysRemaining {
     if (deadline == null) return null;
@@ -60,8 +62,7 @@ class GoalModel extends Equatable {
     return deadline!.difference(now).inDays;
   }
 
-  bool get isActive => status == GoalStatus.inProgress;
-  bool get isDeleted => deletedAt != null;
+  bool get isActive => status == GoalStatus.active;
 
   // Factory constructor for creating from JSON
   factory GoalModel.fromJson(Map<String, dynamic> json) =>

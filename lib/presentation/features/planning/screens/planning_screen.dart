@@ -77,7 +77,7 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
             controller: _tabController,
             children: [
               // Active goals
-              _buildGoalList(goalState.activeGoals, GoalStatus.inProgress),
+              _buildGoalList(goalState.activeGoals, GoalStatus.active),
 
               // Completed goals
               _buildGoalList(goalState.completedGoals, GoalStatus.completed),
@@ -131,7 +131,7 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
     IconData icon;
 
     switch (filterStatus) {
-      case GoalStatus.inProgress:
+      case GoalStatus.active:
         message = '还没有目标';
         subtitle = '创建您的第一个目标，开始规划之旅！';
         icon = Icons.add_task;
@@ -145,6 +145,11 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
         message = '没有暂停的目标';
         subtitle = '所有目标都在正轨上！';
         icon = Icons.play_circle_outline;
+        break;
+      case GoalStatus.deleted:
+        message = '没有已删除的目标';
+        subtitle = '所有目标都完好无损！';
+        icon = Icons.delete_outline;
         break;
     }
 
@@ -180,7 +185,7 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
-            if (filterStatus == GoalStatus.inProgress) ...[
+            if (filterStatus == GoalStatus.active) ...[
               const SizedBox(height: 32),
               FilledButton.icon(
                 onPressed: _showCreateGoalDialog,

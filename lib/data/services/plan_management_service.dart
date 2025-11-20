@@ -162,31 +162,39 @@ class PlanManagementService {
   }
 
   /// Delete plan (soft delete)
+  /// Deletes the plan and all associated tasks
   Future<bool> deletePlan(String planId) async {
+    print('[PlanManagementService] deletePlan called with planId: $planId');
+
     // 1. Get plan
+    print('[PlanManagementService] Fetching plan...');
     final plan = await _planRepository.getPlanById(planId);
     if (plan == null) {
+      print('[PlanManagementService] Plan not found');
       throw const NotFoundException('Plan not found');
     }
+    print('[PlanManagementService] Plan found: ${plan.name}, status: ${plan.status}, isDeleted: ${plan.isDeleted}');
 
     // 2. Check if already deleted
     if (plan.isDeleted) {
+      print('[PlanManagementService] Plan is already deleted (status=${plan.status})');
       throw const BusinessException('Plan is already deleted');
     }
 
-    // 3. Check for active tasks
-    final tasks = await _taskRepository.getPlanTasks(planId);
-    final hasActiveTasks = tasks.any((t) => t.status == TaskStatus.active);
-
-    if (hasActiveTasks) {
-      throw const BusinessException('Cannot delete plan with active tasks');
-    }
+    // 3. Delete all associated tasks (soft delete)
+    print('[PlanManagementService] Deleting all associated tasks for plan...');
+    await _taskRepository.deletePlanTasks(planId);
+    print('[PlanManagementService] All plan tasks deleted');
 
     // 4. Delete the plan
+    print('[PlanManagementService] Calling repository.deletePlan...');
     final result = await _planRepository.deletePlan(planId);
+    print('[PlanManagementService] Repository delete result: $result');
 
     // 5. Remove from goal
+    print('[PlanManagementService] Removing plan from goal: ${plan.goalId}');
     await _goalRepository.removePlanFromGoal(plan.goalId, planId);
+    print('[PlanManagementService] Plan removed from goal successfully');
 
     return result;
   }

@@ -3,7 +3,7 @@ import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 
 /// Task repository interface
-/// Note: Tasks cannot be deleted as per business rules
+/// Note: Tasks are never physically deleted, only soft deleted when plan is deleted
 abstract class ITaskRepository {
   /// Create a new task (system generated only)
   Future<TaskModel> createTask({
@@ -15,10 +15,6 @@ abstract class ITaskRepository {
     required DateTime windowStartTime,
     required DateTime windowEndTime,
   });
-
-  /// Create a repeat execution of an existing task
-  /// Used when user wants to re-execute a completed task
-  Future<TaskModel> createRepeatExecution(String originalTaskId);
 
   /// Get task by ID
   Future<TaskModel?> getTaskById(String taskId);
@@ -71,9 +67,6 @@ abstract class ITaskRepository {
   /// Update task progress (for counter tasks)
   Future<TaskModel> updateTaskProgress(String taskId, int currentCount);
 
-  /// Get task execution history
-  Future<List<TaskModel>> getTaskExecutionHistory(String originalTaskId);
-
   /// Get task statistics
   Future<Map<String, dynamic>> getTaskStatistics(String userId);
 
@@ -85,9 +78,6 @@ abstract class ITaskRepository {
 
   /// Get task completion rate
   Future<double> getTaskCompletionRate(String userId, {int days = 30});
-
-  /// Check if task can be repeated
-  Future<bool> canRepeatTask(String taskId);
 
   /// Get active task for plan (only one active task per plan)
   Future<TaskModel?> getActivePlanTask(String planId);
@@ -110,4 +100,11 @@ abstract class ITaskRepository {
     String? newStatus,
     Map<String, dynamic>? metadata,
   });
+
+  /// Soft delete task (only when plan is deleted)
+  /// This marks the task as deleted but preserves it in the database
+  Future<bool> deleteTask(String taskId);
+
+  /// Soft delete all tasks for a plan (only when plan is deleted)
+  Future<bool> deletePlanTasks(String planId);
 }

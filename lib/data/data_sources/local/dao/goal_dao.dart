@@ -45,8 +45,9 @@ class GoalDao {
     goalMap['tags'] = jsonEncode(goal.tags);
     print('[GoalDao] After tags conversion: $goalMap');
 
-    // Remove planIds as it's not stored in database
+    // Remove planIds and isDeleted (computed) as they're not stored in database
     goalMap.remove('planIds');
+    goalMap.remove('isDeleted');  // This is computed from status
     goalMap.remove('createdAt');  // Remove camelCase versions that were replaced
     goalMap.remove('updatedAt');
     goalMap.remove('deletedAt');
@@ -72,8 +73,8 @@ class GoalDao {
     final db = await _database.database;
     final List<Map<String, dynamic>> maps = await db.query(
       _tableGoals,
-      where: 'id = ? AND deleted_at IS NULL',
-      whereArgs: [goalId],
+      where: 'id = ? AND status != ?',
+      whereArgs: [goalId, 'deleted'],
       limit: 1,
     );
 
@@ -90,7 +91,7 @@ class GoalDao {
     final db = await _database.database;
     final List<Map<String, dynamic>> maps = await db.query(
       _tableGoals,
-      where: 'user_id = ? AND deleted_at IS NULL',
+      where: 'user_id = ? AND status != \'deleted\'',
       whereArgs: [userId],
       orderBy: 'created_at DESC',
     );
@@ -109,8 +110,8 @@ class GoalDao {
     final db = await _database.database;
     final List<Map<String, dynamic>> maps = await db.query(
       _tableGoals,
-      where: 'user_id = ? AND status = ? AND deleted_at IS NULL',
-      whereArgs: [userId, 'inProgress'],
+      where: 'user_id = ? AND status = ? AND status != \'deleted\'',
+      whereArgs: [userId, 'active'],
       orderBy: 'priority ASC, created_at DESC',
     );
 
@@ -128,7 +129,7 @@ class GoalDao {
     final db = await _database.database;
     final List<Map<String, dynamic>> maps = await db.query(
       _tableGoals,
-      where: 'user_id = ? AND status = ? AND deleted_at IS NULL',
+      where: 'user_id = ? AND status = ? AND status != \'deleted\'',
       whereArgs: [userId, status.toDbString()],
       orderBy: 'created_at DESC',
     );
@@ -147,7 +148,7 @@ class GoalDao {
     final db = await _database.database;
     final List<Map<String, dynamic>> maps = await db.query(
       _tableGoals,
-      where: 'user_id = ? AND priority = ? AND deleted_at IS NULL',
+      where: 'user_id = ? AND priority = ? AND status != \'deleted\'',
       whereArgs: [userId, priority.toDbString()],
       orderBy: 'created_at DESC',
     );
@@ -170,7 +171,7 @@ class GoalDao {
 
     final List<Map<String, dynamic>> maps = await db.query(
       _tableGoals,
-      where: 'user_id = ? AND ($tagConditions) AND deleted_at IS NULL',
+      where: 'user_id = ? AND ($tagConditions) AND status != \'deleted\'',
       whereArgs: [userId],
       orderBy: 'created_at DESC',
     );
@@ -192,7 +193,7 @@ class GoalDao {
 
     final List<Map<String, dynamic>> maps = await db.query(
       _tableGoals,
-      where: 'user_id = ? AND deadline IS NOT NULL AND deadline BETWEEN ? AND ? AND deleted_at IS NULL',
+      where: 'user_id = ? AND deadline IS NOT NULL AND deadline BETWEEN ? AND ? AND status != \'deleted\'',
       whereArgs: [userId, now, future],
       orderBy: 'deadline ASC',
     );
@@ -234,8 +235,9 @@ class GoalDao {
     // Convert tags list to JSON string
     goalMap['tags'] = jsonEncode(goal.tags);
 
-    // Remove planIds as it's not stored in database
+    // Remove planIds and isDeleted (computed) as they're not stored in database
     goalMap.remove('planIds');
+    goalMap.remove('isDeleted');  // This is computed from status
     goalMap.remove('createdAt');  // Remove camelCase versions that were replaced
     goalMap.remove('updatedAt');
     goalMap.remove('deletedAt');
@@ -264,16 +266,30 @@ class GoalDao {
 
   /// Soft delete goal
   Future<int> deleteGoal(String goalId) async {
+    print('[GoalDao] deleteGoal called with goalId: $goalId');
     final db = await _database.database;
-    return await db.update(
-      _tableGoals,
-      {
-        'deleted_at': AppDatabase.getCurrentTimestamp(),
-        'updated_at': AppDatabase.getCurrentTimestamp(),
-      },
-      where: 'id = ?',
-      whereArgs: [goalId],
-    );
+
+    final timestamp = AppDatabase.getCurrentTimestamp();
+    final statusString = GoalStatus.deleted.toDbString();
+    print('[GoalDao] Soft deleting goal, status: $statusString, timestamp: $timestamp');
+
+    try {
+      final result = await db.update(
+        _tableGoals,
+        {
+          'status': statusString,
+          'deleted_at': timestamp,
+          'updated_at': timestamp,
+        },
+        where: 'id = ?',
+        whereArgs: [goalId],
+      );
+      print('[GoalDao] Soft delete result: $result rows affected');
+      return result;
+    } catch (e) {
+      print('[GoalDao] Error deleting goal: $e');
+      rethrow;
+    }
   }
 
   /// Restore deleted goal
@@ -282,6 +298,7 @@ class GoalDao {
     return await db.update(
       _tableGoals,
       {
+        'status': GoalStatus.active.toDbString(),
         'deleted_at': null,
         'updated_at': AppDatabase.getCurrentTimestamp(),
       },
@@ -296,7 +313,7 @@ class GoalDao {
     final result = await db.rawQuery('''
       SELECT AVG(completion_rate) as progress
       FROM $_tablePlans
-      WHERE goal_id = ? AND deleted_at IS NULL
+      WHERE goal_id = ? AND status != \'deleted\'
     ''', [goalId]);
 
     if (result.isEmpty) return 0.0;
@@ -317,7 +334,7 @@ class GoalDao {
         SUM(total_task_count) as total_tasks,
         SUM(skipped_task_count) as total_skipped_tasks
       FROM $_tablePlans
-      WHERE goal_id = ? AND deleted_at IS NULL
+      WHERE goal_id = ? AND status != \'deleted\'
     ''', [goalId]);
 
     if (result.isEmpty) {
@@ -346,7 +363,7 @@ class GoalDao {
 
     final List<Map<String, dynamic>> maps = await db.query(
       _tableGoals,
-      where: 'user_id = ? AND (title LIKE ? OR description LIKE ?) AND deleted_at IS NULL',
+      where: 'user_id = ? AND (title LIKE ? OR description LIKE ?) AND status != \'deleted\'',
       whereArgs: [userId, searchQuery, searchQuery],
       orderBy: 'created_at DESC',
     );
@@ -385,7 +402,7 @@ class GoalDao {
     final List<Map<String, dynamic>> maps = await db.query(
       _tablePlans,
       columns: ['id'],
-      where: 'goal_id = ? AND deleted_at IS NULL',
+      where: 'goal_id = ? AND status != \'deleted\'',
       whereArgs: [goalId],
     );
 

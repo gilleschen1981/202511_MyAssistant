@@ -21,7 +21,7 @@ class GoalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isActive = goal.status == GoalStatus.inProgress;
+    final isActive = goal.status == GoalStatus.active;
     final isCompleted = goal.status == GoalStatus.completed;
 
     return Card(
@@ -175,7 +175,7 @@ class GoalCard extends StatelessWidget {
     Color color;
 
     switch (status) {
-      case GoalStatus.inProgress:
+      case GoalStatus.active:
         icon = Icons.flag;
         color = theme.colorScheme.primary;
         break;
@@ -186,6 +186,10 @@ class GoalCard extends StatelessWidget {
       case GoalStatus.completed:
         icon = Icons.check_circle;
         color = Colors.green;
+        break;
+      case GoalStatus.deleted:
+        icon = Icons.delete;
+        color = Colors.red;
         break;
     }
 

@@ -1,9 +1,7 @@
 import 'package:myassistant/domain/use_cases/base_use_case.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
 import 'package:myassistant/data/models/task_model.dart';
-import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
-import 'package:myassistant/data/data_sources/local/dao/task_execution_dao.dart';
 
 /// Parameters for completing a task
 class CompleteTaskParams {
@@ -39,9 +37,8 @@ class CompleteTaskResult {
 /// Encapsulates the business logic for task completion
 class CompleteTaskUseCase extends BaseUseCase<UseCaseResult<CompleteTaskResult>, CompleteTaskParams> {
   final ITaskRepository _taskRepository;
-  final TaskExecutionDao _executionDao;
 
-  CompleteTaskUseCase(this._taskRepository, this._executionDao);
+  CompleteTaskUseCase(this._taskRepository);
 
   @override
   Future<UseCaseResult<CompleteTaskResult>> call(CompleteTaskParams params) async {
@@ -80,57 +77,18 @@ class CompleteTaskUseCase extends BaseUseCase<UseCaseResult<CompleteTaskResult>,
         executionNote: params.executionNote,
       );
 
-      // Record execution in task_executions table
-      await _executionDao.createFromTaskCompletion(
-        taskId: task.id,
-        userId: task.userId,
-        executionType: _getExecutionType(task.config),
-        startedAt: DateTime.now().subtract(
-          Duration(minutes: params.actualDurationMinutes ?? 0),
-        ),
-        completedAt: DateTime.now(),
-        durationMinutes: params.actualDurationMinutes,
-        counterValue: params.counterValue,
-        evaluationScore: params.evaluationResult,
-        notes: params.executionNote,
-      );
-
-      // Check if next task should be generated
-      TaskModel? nextTask;
-      bool shouldGenerateNext = false;
-
-      // For tasks with repeat configuration, check if we can repeat
-      if (task.canRepeat && !task.isExpired) {
-        shouldGenerateNext = true;
-        // Note: Actual generation would be handled by TaskGenerationService
-        // This use case just indicates that generation is needed
-      }
+      // Note: Task regeneration is handled by TaskGenerationService
+      // based on plan's repeat rules, not individual task properties
 
       return UseCaseResult.success(
         CompleteTaskResult(
           completedTask: completedTask,
-          nextTask: nextTask,
-          shouldGenerateNext: shouldGenerateNext,
+          nextTask: null,
+          shouldGenerateNext: false,
         ),
       );
     } catch (e) {
       return UseCaseResult.failure('Failed to complete task: ${e.toString()}');
-    }
-  }
-
-  String _getExecutionType(TaskConfiguration config) {
-    if (config.durationMinutes != null && config.repeatCount != null) {
-      return 'timerWithCount';
-    } else if (config.repeatCount != null && config.evaluationOptions != null) {
-      return 'countWithEvaluation';
-    } else if (config.durationMinutes != null) {
-      return 'timer';
-    } else if (config.repeatCount != null) {
-      return 'counter';
-    } else if (config.evaluationOptions != null) {
-      return 'evaluation';
-    } else {
-      return 'simple';
     }
   }
 }

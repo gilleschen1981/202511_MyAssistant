@@ -6,13 +6,15 @@ import 'package:myassistant/data/models/enums/task_type.dart';
 class PlanCard extends StatelessWidget {
   final PlanModel plan;
   final VoidCallback? onTap;
-  final VoidCallback? onToggle;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   const PlanCard({
     super.key,
     required this.plan,
     this.onTap,
-    this.onToggle,
+    this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -129,20 +131,29 @@ class PlanCard extends StatelessWidget {
                 ],
               ),
 
-              // Action buttons for active plans
-              if (onToggle != null && !hasEnded) ...[
+              // Action buttons for active plans (edit and delete)
+              if ((onEdit != null || onDelete != null) && !hasEnded) ...[
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: onToggle,
-                      icon: Icon(
-                        isActive ? Icons.pause : Icons.play_arrow,
-                        size: 18,
+                    if (onEdit != null)
+                      OutlinedButton.icon(
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit, size: 18),
+                        label: const Text('编辑'),
                       ),
-                      label: Text(isActive ? 'Pause' : 'Resume'),
-                    ),
+                    if (onEdit != null && onDelete != null)
+                      const SizedBox(width: 8),
+                    if (onDelete != null)
+                      OutlinedButton.icon(
+                        onPressed: onDelete,
+                        icon: const Icon(Icons.delete, size: 18),
+                        label: const Text('删除'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: theme.colorScheme.error,
+                        ),
+                      ),
                   ],
                 ),
               ],

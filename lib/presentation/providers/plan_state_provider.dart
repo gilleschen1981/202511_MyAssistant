@@ -193,16 +193,23 @@ class PlanListNotifier extends StateNotifier<PlanListState> {
 
   /// Delete plan
   Future<bool> deletePlan(String planId) async {
+    print('[PlanStateProvider] deletePlan called with planId: $planId');
     state = state.copyWith(isLoading: true, error: null);
 
     try {
+      print('[PlanStateProvider] Calling _planService.deletePlan...');
       final result = await _planService.deletePlan(planId);
+      print('[PlanStateProvider] _planService.deletePlan result: $result');
 
       // Reload plans
+      print('[PlanStateProvider] Reloading plans...');
       await loadPlans();
+      print('[PlanStateProvider] Plans reloaded successfully');
 
       return result;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[PlanStateProvider] Error deleting plan: $e');
+      print('[PlanStateProvider] Stack trace: $stackTrace');
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),

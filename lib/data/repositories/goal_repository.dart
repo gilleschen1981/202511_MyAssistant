@@ -40,7 +40,7 @@ class GoalRepository implements IGoalRepository {
       tags: tags ?? [],
       deadline: deadline,
       priority: priority,
-      status: GoalStatus.inProgress,
+      status: GoalStatus.active,
       successCriteria: successCriteria,
       createdAt: now,
       updatedAt: now,
@@ -173,20 +173,30 @@ class GoalRepository implements IGoalRepository {
 
   @override
   Future<bool> removePlanFromGoal(String goalId, String planId) async {
+    print('[GoalRepository] removePlanFromGoal called - goalId: $goalId, planId: $planId');
     final goal = await _goalDao.getGoalById(goalId);
-    if (goal == null) return false;
+    if (goal == null) {
+      print('[GoalRepository] Goal not found');
+      return false;
+    }
+    print('[GoalRepository] Goal found: ${goal.title}, planIds count: ${goal.planIds.length}');
 
     if (goal.planIds.contains(planId)) {
+      print('[GoalRepository] Plan found in goal, removing...');
       final updatedPlanIds = goal.planIds.where((id) => id != planId).toList();
+      print('[GoalRepository] Updated planIds count: ${updatedPlanIds.length}');
       final updatedGoal = goal.copyWith(
         planIds: updatedPlanIds,
         updatedAt: DateTime.now(),
       );
 
+      print('[GoalRepository] Updating goal in DAO...');
       final result = await _goalDao.updateGoal(updatedGoal);
+      print('[GoalRepository] DAO update result: $result');
       return result > 0;
     }
 
+    print('[GoalRepository] Plan not found in goal, returning true');
     return true;
   }
 

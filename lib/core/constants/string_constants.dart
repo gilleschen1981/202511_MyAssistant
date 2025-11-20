@@ -11,11 +11,13 @@ class StringConstants {
   static const String goalStatusInProgress = 'goal_status_in_progress';
   static const String goalStatusPaused = 'goal_status_paused';
   static const String goalStatusCompleted = 'goal_status_completed';
+  static const String goalStatusDeleted = 'goal_status_deleted';
 
   // Task Status Labels
   static const String taskStatusActive = 'task_status_active';
   static const String taskStatusCompleted = 'task_status_completed';
   static const String taskStatusSkipped = 'task_status_skipped';
+  static const String taskStatusDeleted = 'task_status_deleted';
 
   // User Status Labels
   static const String userStatusActive = 'user_status_active';

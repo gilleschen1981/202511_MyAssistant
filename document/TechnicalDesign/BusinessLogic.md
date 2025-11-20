@@ -411,7 +411,9 @@ class TaskExecutionService {
 
     await _taskRepository.updateTask(updatedTask);
 
-    // 5. 更新计划统计
+    // 5. 记录任务完成(由trigger自动记录到task_history)
+
+    // 6. 更新计划统计
     await _updatePlanStatistics(task.planId);
 
     // 6. 检查是否需要生成下一个任务（同一窗口期内再次执行）
@@ -544,6 +546,40 @@ class TaskExecutionService {
       todaySkipped: todayTasks.where((t) => t.status == TaskStatus.skipped).length,
     );
   }
+
+  /// 再次执行任务（创建新的独立任务）
+  /// v4.0 设计：没有"repeat execution"概念，每次都创建新任务
+  Future<Task> reExecuteTask(String taskId) async {
+    // 1. 获取原任务
+    final originalTask = await _taskRepository.getTaskById(taskId);
+    if (originalTask == null) {
+      throw BusinessException('任务不存在');
+    }
+
+    // 2. 验证前置条件
+    // 只有已完成的任务才能再次执行
+    if (originalTask.status != TaskStatus.completed) {
+      throw BusinessException('只有已完成的任务才能再次执行');
+    }
+
+    // 任务必须仍在时间窗口内
+    if (!originalTask.isInCurrentWindow) {
+      throw BusinessException('任务时间窗口已过期');
+    }
+
+    // 3. 创建新任务（复制配置）
+    // 注意：这是一个全新的独立任务，有新的UUID
+    final newTask = await _taskRepository.createRepeatExecution(taskId);
+
+    if (newTask == null) {
+      throw BusinessException('创建新任务失败');
+    }
+
+    // 4. 发送通知
+    await _notificationService.notifyNewTask(newTask);
+
+    return newTask;
+  }
 }
 
 /// 计时会话
@@ -658,7 +694,7 @@ class GoalManagementService {
       tags: tags ?? [],
       deadline: deadline,
       priority: priority,
-      status: GoalStatus.inProgress,
+      status: GoalStatus.active,
       successCriteria: successCriteria?.trim(),
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
@@ -715,17 +751,17 @@ class GoalManagementService {
     return updatedGoal;
   }
 
-  /// 删除目标
+  /// 删除目标（软删除：设置status='deleted'）
   Future<void> deleteGoal(String goalId) async {
     // 1. 获取相关计划
     final plans = await _planRepository.getPlansByGoalId(goalId);
 
-    // 2. 删除所有相关计划（级联删除）
+    // 2. 软删除所有相关计划（级联软删除：设置status='deleted'）
     for (final plan in plans) {
       await _planRepository.deletePlan(plan.id);
     }
 
-    // 3. 删除目标
+    // 3. 软删除目标（设置status='deleted'和deleted_at）
     await _goalRepository.deleteGoal(goalId);
   }
 
@@ -822,11 +858,14 @@ class PlanManagementService {
   }
 
   /// 更新计划
+  /// 注意：计划名称（name）创建后不可修改
   Future<Plan> updatePlan({
     required String planId,
-    String? name,
     String? description,
     DateTime? endDate,
+    RepeatRule? repeatRule,
+    TaskConfiguration? taskConfig,
+    PlanStatus? status,
   }) async {
     // 1. 获取现有计划
     final existingPlan = await _planRepository.getPlan(planId);
@@ -834,27 +873,23 @@ class PlanManagementService {
       throw NotFoundException('计划不存在');
     }
 
-    // 2. 如果要修改名称，检查唯一性
-    if (name != null && name != existingPlan.name) {
-      final duplicatePlan = await _planRepository.getPlanByUserAndName(
-        existingPlan.userId,
-        name,
-      );
-      if (duplicatePlan != null && duplicatePlan.id != planId) {
-        throw BusinessException('该名称的计划已存在');
-      }
-    }
-
-    // 3. 验证结束日期
+    // 2. 验证结束日期
     if (endDate != null && endDate.isBefore(existingPlan.startDate)) {
       throw ValidationException('结束日期不能早于开始日期');
     }
 
-    // 4. 更新计划
+    // 3. 验证任务配置
+    if (taskConfig != null && !taskConfig.isValid) {
+      throw ValidationException('任务配置不合法');
+    }
+
+    // 4. 更新计划（name字段不可修改）
     final updatedPlan = existingPlan.copyWith(
-      name: name ?? existingPlan.name,
       description: description ?? existingPlan.description,
       endDate: endDate ?? existingPlan.endDate,
+      repeatRule: repeatRule ?? existingPlan.repeatRule,
+      taskConfig: taskConfig ?? existingPlan.taskConfig,
+      status: status ?? existingPlan.status,
       updatedAt: DateTime.now(),
     );
 
@@ -863,12 +898,12 @@ class PlanManagementService {
     return updatedPlan;
   }
 
-  /// 删除计划
+  /// 删除计划（软删除：设置status='deleted'）
   Future<void> deletePlan(String planId) async {
-    // 1. 删除相关的所有任务
+    // 1. 软删除相关的所有任务（设置status='deleted'）
     await _taskRepository.deleteTasksByPlanId(planId);
 
-    // 2. 删除计划
+    // 2. 软删除计划（设置status='deleted'和deleted_at）
     await _planRepository.deletePlan(planId);
   }
 
@@ -1029,12 +1064,12 @@ class GlobalExceptionHandler {
 ### 7.3 计划管理规则
 1. 计划名称作为ID，创建后不可修改
 2. 计划必须关联到某个目标
-3. 删除计划时级联删除相关任务
+3. 删除计划时级联软删除相关任务（设置status='deleted'）
 4. 计划暂停时，活跃任务标记为跳过
 
 ### 7.4 目标管理规则
 1. 已完成的目标不能修改
-2. 删除目标时级联删除相关计划和任务
+2. 删除目标时级联软删除相关计划和任务（设置status='deleted'）
 3. 目标进度为所有计划进度的平均值
 
 ## 8. 性能优化策略

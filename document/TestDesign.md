@@ -947,7 +947,7 @@ class TestDataBuilder {
     String? userId,
     Priority priority = Priority.medium,
     DateTime? deadline,
-    GoalStatus status = GoalStatus.inProgress,
+    GoalStatus status = GoalStatus.active,
   }) {
     return Goal(
       id: id ?? generateId(),

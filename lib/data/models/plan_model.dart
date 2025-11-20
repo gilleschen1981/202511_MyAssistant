@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/data/models/enums/task_type.dart';
 
 part 'plan_model.g.dart';
@@ -141,12 +142,13 @@ class PlanModel extends Equatable {
   // Task configuration
   final TaskConfiguration taskConfig;
 
+  // Status
+  final PlanStatus status;
+
   // Timestamps
   final DateTime createdAt;
   final DateTime updatedAt;
-
-  // Soft delete support
-  final DateTime? deletedAt;
+  final DateTime? deletedAt; // For audit trail
 
   const PlanModel({
     required this.id,
@@ -158,26 +160,27 @@ class PlanModel extends Equatable {
     required this.endDate,
     required this.repeatRule,
     required this.taskConfig,
+    this.status = PlanStatus.active,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
   });
 
+  /// Check if plan is deleted (soft delete)
+  bool get isDeleted => status == PlanStatus.deleted;
+
   /// Check if plan is currently active
   bool get isActive {
     final now = DateTime.now();
-    return now.isAfter(startDate) &&
-        now.isBefore(endDate) &&
-        deletedAt == null;
+    return status == PlanStatus.active &&
+        now.isAfter(startDate) &&
+        now.isBefore(endDate);
   }
 
   /// Check if plan has ended
   bool get hasEnded {
     return DateTime.now().isAfter(endDate);
   }
-
-  /// Check if plan is deleted
-  bool get isDeleted => deletedAt != null;
 
   /// Get duration in days
   int get durationDays {
@@ -202,6 +205,7 @@ class PlanModel extends Equatable {
     DateTime? endDate,
     RepeatRule? repeatRule,
     TaskConfiguration? taskConfig,
+    PlanStatus? status,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
@@ -216,6 +220,7 @@ class PlanModel extends Equatable {
       endDate: endDate ?? this.endDate,
       repeatRule: repeatRule ?? this.repeatRule,
       taskConfig: taskConfig ?? this.taskConfig,
+      status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -233,6 +238,7 @@ class PlanModel extends Equatable {
         endDate,
         repeatRule,
         taskConfig,
+        status,
         createdAt,
         updatedAt,
         deletedAt,

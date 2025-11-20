@@ -32,12 +32,9 @@ class TaskModel extends Equatable {
   final String? evaluationResult; // Evaluation result for evaluation tasks
   final String? executionNote;
 
-  // For repeat executions within the same window
-  final int repeatExecutionCount; // Number of times this task has been re-executed
-  final String? originalTaskId; // If this is a repeat, reference to original task
-
   // Timestamp
   final DateTime createdAt;
+  final DateTime? deletedAt; // For audit trail
 
   const TaskModel({
     required this.id,
@@ -55,17 +52,16 @@ class TaskModel extends Equatable {
     this.actualDurationMinutes,
     this.evaluationResult,
     this.executionNote,
-    this.repeatExecutionCount = 0,
-    this.originalTaskId,
     required this.createdAt,
+    this.deletedAt,
   });
 
   // Computed properties
+  bool get isDeleted => status == TaskStatus.deleted;
   bool get isExpired => DateTime.now().isAfter(windowEndTime);
   bool get canExecute => status == TaskStatus.active && !isExpired;
   bool get isCompleted => status == TaskStatus.completed;
   bool get isSkipped => status == TaskStatus.skipped;
-  bool get isRepeatExecution => originalTaskId != null;
 
   /// Progress calculation for counter tasks
   double get progress {
@@ -80,11 +76,6 @@ class TaskModel extends Equatable {
     return now.isAfter(windowStartTime) && now.isBefore(windowEndTime);
   }
 
-  /// Check if task can be repeated (unlimited repeats allowed)
-  bool get canRepeat {
-    return isCompleted && isInCurrentWindow;
-  }
-
   /// Factory constructor for creating from JSON
   factory TaskModel.fromJson(Map<String, dynamic> json) =>
       _$TaskModelFromJson(json);
@@ -93,7 +84,6 @@ class TaskModel extends Equatable {
   Map<String, dynamic> toJson() => _$TaskModelToJson(this);
 
   /// Copy with method for immutable updates
-  /// Note: Tasks cannot be deleted, so no deletedAt field
   TaskModel copyWith({
     String? id,
     String? userId,
@@ -110,9 +100,8 @@ class TaskModel extends Equatable {
     int? actualDurationMinutes,
     String? evaluationResult,
     String? executionNote,
-    int? repeatExecutionCount,
-    String? originalTaskId,
     DateTime? createdAt,
+    DateTime? deletedAt,
   }) {
     return TaskModel(
       id: id ?? this.id,
@@ -130,33 +119,8 @@ class TaskModel extends Equatable {
       actualDurationMinutes: actualDurationMinutes ?? this.actualDurationMinutes,
       evaluationResult: evaluationResult ?? this.evaluationResult,
       executionNote: executionNote ?? this.executionNote,
-      repeatExecutionCount: repeatExecutionCount ?? this.repeatExecutionCount,
-      originalTaskId: originalTaskId ?? this.originalTaskId,
       createdAt: createdAt ?? this.createdAt,
-    );
-  }
-
-  /// Create a repeat execution of this task
-  TaskModel createRepeatExecution(String newId) {
-    return TaskModel(
-      id: newId,
-      userId: userId,
-      planId: planId,
-      name: name,
-      description: description,
-      config: config,
-      windowStartTime: windowStartTime,
-      windowEndTime: windowEndTime,
-      status: TaskStatus.active, // New execution starts as active
-      currentCount: 0, // Reset counter
-      completedAt: null, // Reset completion
-      skippedAt: null,
-      actualDurationMinutes: null,
-      evaluationResult: null,
-      executionNote: null,
-      repeatExecutionCount: repeatExecutionCount + 1,
-      originalTaskId: originalTaskId ?? id, // Reference original task
-      createdAt: DateTime.now(),
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 
@@ -177,8 +141,7 @@ class TaskModel extends Equatable {
         actualDurationMinutes,
         evaluationResult,
         executionNote,
-        repeatExecutionCount,
-        originalTaskId,
         createdAt,
+        deletedAt,
       ];
 }

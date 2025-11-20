@@ -280,19 +280,10 @@ class TaskExecutionService {
     // 5. Stop timer if active
     stopTimer(task.id);
 
-    // 6. Check if should generate next task (unlimited re-execution support)
-    final plan = await _planRepository.getPlanById(task.planId);
+    // 6. Note: Repeat execution is no longer supported in v4.0
+    // Each task is now an independent entity
+    // To repeat a task, create a new independent task with the same configuration
     TaskModel? nextTask;
-
-    if (plan != null && _shouldAllowReExecution(plan, task)) {
-      // Create a repeat execution
-      try {
-        nextTask = await _taskRepository.createRepeatExecution(task.id);
-      } catch (e) {
-        // If repeat execution fails, it's okay
-        // Failed to create repeat execution: $e
-      }
-    }
 
     // 7. Get statistics
     final statistics = await _getTaskStatistics(task.userId);
@@ -381,20 +372,10 @@ class TaskExecutionService {
     return await _taskRepository.updateTaskProgress(task.id, newCount);
   }
 
-  /// Re-execute completed task (unlimited within window)
-  Future<TaskModel> reExecuteTask(String taskId) async {
-    final task = await _taskRepository.getTaskById(taskId);
-    if (task == null) {
-      throw const NotFoundException('Task not found');
-    }
-
-    if (!task.canRepeat) {
-      throw const BusinessException('This task cannot be re-executed');
-    }
-
-    final newTask = await _taskRepository.createRepeatExecution(taskId);
-    return newTask;
-  }
+  /// Re-execute completed task (create a new similar task)
+  // Note: reExecuteTask is no longer supported in v4.0
+  // Repeat execution has been removed
+  // To repeat a task, create a new independent task with the same configuration
 
   /// Validate task completion data
   void _validateTaskCompletion(TaskModel task, String? evaluationResult) {
@@ -411,12 +392,6 @@ class TaskExecutionService {
         !task.config.evaluationOptions!.contains(evaluationResult)) {
       throw const ValidationException('Invalid evaluation option');
     }
-  }
-
-  /// Check if should allow re-execution
-  bool _shouldAllowReExecution(PlanModel plan, TaskModel completedTask) {
-    // Unlimited re-execution is allowed within the time window
-    return completedTask.isInCurrentWindow;
   }
 
   /// Get task statistics

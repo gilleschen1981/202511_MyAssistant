@@ -60,7 +60,7 @@ class CreateGoalUseCase extends BaseUseCase<UseCaseResult<GoalModel>, CreateGoal
         tags: params.tags ?? const [],
         deadline: params.deadline,
         priority: params.priority,
-        status: GoalStatus.inProgress,
+        status: GoalStatus.active,
         successCriteria: params.successCriteria?.trim(),
         planIds: const [], // New goal has no plans yet
         createdAt: now,

@@ -131,13 +131,6 @@ class TaskCard extends StatelessWidget {
                       icon: Icons.calendar_today,
                       color: theme.colorScheme.tertiary,
                     ),
-                  if (task.isRepeatExecution)
-                    _buildBadge(
-                      context: context,
-                      label: 'Repeat',
-                      icon: Icons.replay,
-                      color: theme.colorScheme.primary,
-                    ),
                 ],
               ),
 
@@ -201,6 +194,10 @@ class TaskCard extends StatelessWidget {
         case TaskStatus.skipped:
           icon = Icons.skip_next;
           color = Colors.orange;
+          break;
+        case TaskStatus.deleted:
+          icon = Icons.delete;
+          color = theme.colorScheme.error;
           break;
       }
     }

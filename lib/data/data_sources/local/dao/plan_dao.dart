@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:myassistant/data/data_sources/local/database/app_database.dart';
 import 'package:myassistant/data/models/plan_model.dart';
+import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/data/models/enums/task_type.dart';
 
 /// Plan Data Access Object
@@ -24,6 +25,7 @@ class PlanDao {
       'repeat_type': plan.repeatRule.type.toDbString(),
       'custom_days': plan.repeatRule.customDays,
       'task_config': jsonEncode(plan.taskConfig.toJson()),
+      'status': plan.status.toDbString(),
       'created_at': AppDatabase.dateTimeToTimestamp(plan.createdAt),
       'updated_at': AppDatabase.dateTimeToTimestamp(plan.updatedAt),
       'deleted_at': plan.deletedAt != null
@@ -49,8 +51,8 @@ class PlanDao {
     final db = await _database.database;
     final List<Map<String, dynamic>> maps = await db.query(
       _tablePlans,
-      where: 'id = ? AND deleted_at IS NULL',
-      whereArgs: [planId],
+      where: 'id = ? AND status != ?',
+      whereArgs: [planId, 'deleted'],
       limit: 1,
     );
 
@@ -64,8 +66,8 @@ class PlanDao {
     final db = await _database.database;
     final List<Map<String, dynamic>> maps = await db.query(
       _tablePlans,
-      where: 'user_id = ? AND deleted_at IS NULL',
-      whereArgs: [userId],
+      where: 'user_id = ? AND status != ?',
+      whereArgs: [userId, 'deleted'],
       orderBy: 'created_at DESC',
     );
 
@@ -77,8 +79,8 @@ class PlanDao {
     final db = await _database.database;
     final List<Map<String, dynamic>> maps = await db.query(
       _tablePlans,
-      where: 'goal_id = ? AND deleted_at IS NULL',
-      whereArgs: [goalId],
+      where: 'goal_id = ? AND status != ?',
+      whereArgs: [goalId, 'deleted'],
       orderBy: 'created_at DESC',
     );
 
@@ -92,8 +94,8 @@ class PlanDao {
 
     final List<Map<String, dynamic>> maps = await db.query(
       _tablePlans,
-      where: 'user_id = ? AND start_date <= ? AND end_date >= ? AND deleted_at IS NULL',
-      whereArgs: [userId, now, now],
+      where: 'user_id = ? AND start_date <= ? AND end_date >= ? AND status != ?',
+      whereArgs: [userId, now, now, 'deleted'],
       orderBy: 'created_at DESC',
     );
 
@@ -112,12 +114,13 @@ class PlanDao {
 
     final List<Map<String, dynamic>> maps = await db.query(
       _tablePlans,
-      where: '''user_id = ? AND deleted_at IS NULL AND
+      where: '''user_id = ? AND status != ? AND
                 ((start_date BETWEEN ? AND ?) OR
                  (end_date BETWEEN ? AND ?) OR
                  (start_date <= ? AND end_date >= ?))''',
       whereArgs: [
         userId,
+        'deleted',
         startTimestamp,
         endTimestamp,
         startTimestamp,
@@ -142,6 +145,7 @@ class PlanDao {
       'repeat_type': plan.repeatRule.type.toDbString(),
       'custom_days': plan.repeatRule.customDays,
       'task_config': jsonEncode(plan.taskConfig.toJson()),
+      'status': plan.status.toDbString(),
       'updated_at': AppDatabase.getCurrentTimestamp(),
     };
 
@@ -157,26 +161,33 @@ class PlanDao {
     );
   }
 
-  /// Soft delete plan
+  /// Soft delete plan (sets status='deleted')
   Future<int> deletePlan(String planId) async {
+    print('[PlanDao] deletePlan called with planId: $planId');
     final db = await _database.database;
-    return await db.update(
+    final timestamp = AppDatabase.getCurrentTimestamp();
+    print('[PlanDao] Soft deleting plan with timestamp: $timestamp');
+    final result = await db.update(
       _tablePlans,
       {
-        'deleted_at': AppDatabase.getCurrentTimestamp(),
-        'updated_at': AppDatabase.getCurrentTimestamp(),
+        'status': 'deleted',
+        'deleted_at': timestamp,
+        'updated_at': timestamp,
       },
       where: 'id = ?',
       whereArgs: [planId],
     );
+    print('[PlanDao] Soft delete result (rows affected): $result');
+    return result;
   }
 
-  /// Restore deleted plan
+  /// Restore deleted plan (sets status='active')
   Future<int> restorePlan(String planId) async {
     final db = await _database.database;
     return await db.update(
       _tablePlans,
       {
+        'status': 'active',
         'deleted_at': null,
         'updated_at': AppDatabase.getCurrentTimestamp(),
       },
@@ -189,8 +200,8 @@ class PlanDao {
   Future<bool> isPlanNameExists(String userId, String name) async {
     final db = await _database.database;
     final count = Sqflite.firstIntValue(await db.rawQuery(
-      'SELECT COUNT(*) FROM $_tablePlans WHERE user_id = ? AND name = ? AND deleted_at IS NULL',
-      [userId, name],
+      'SELECT COUNT(*) FROM $_tablePlans WHERE user_id = ? AND name = ? AND status != ?',
+      [userId, name, 'deleted'],
     ));
     return count != null && count > 0;
   }
@@ -303,8 +314,8 @@ class PlanDao {
 
     final List<Map<String, dynamic>> maps = await db.query(
       _tablePlans,
-      where: 'user_id = ? AND (name LIKE ? OR description LIKE ?) AND deleted_at IS NULL',
-      whereArgs: [userId, searchQuery, searchQuery],
+      where: 'user_id = ? AND (name LIKE ? OR description LIKE ?) AND status != ?',
+      whereArgs: [userId, searchQuery, searchQuery, 'deleted'],
       orderBy: 'created_at DESC',
     );
 
@@ -316,8 +327,8 @@ class PlanDao {
     final db = await _database.database;
     final List<Map<String, dynamic>> maps = await db.query(
       _tablePlans,
-      where: 'user_id = ? AND deleted_at IS NOT NULL',
-      whereArgs: [userId],
+      where: 'user_id = ? AND status = ?',
+      whereArgs: [userId, 'deleted'],
       orderBy: 'deleted_at DESC',
     );
 
@@ -332,8 +343,8 @@ class PlanDao {
 
     final List<Map<String, dynamic>> maps = await db.query(
       _tablePlans,
-      where: 'user_id = ? AND end_date BETWEEN ? AND ? AND deleted_at IS NULL',
-      whereArgs: [userId, now, future],
+      where: 'user_id = ? AND end_date BETWEEN ? AND ? AND status != ?',
+      whereArgs: [userId, now, future, 'deleted'],
       orderBy: 'end_date ASC',
     );
 
@@ -362,6 +373,7 @@ class PlanDao {
       endDate: AppDatabase.timestampToDateTime(map['end_date'] as int),
       repeatRule: repeatRule,
       taskConfig: taskConfig,
+      status: PlanStatus.fromString(map['status'] as String),
       createdAt: AppDatabase.timestampToDateTime(map['created_at'] as int),
       updatedAt: AppDatabase.timestampToDateTime(map['updated_at'] as int),
       deletedAt: map['deleted_at'] != null

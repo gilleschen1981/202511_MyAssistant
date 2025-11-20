@@ -213,16 +213,23 @@ class GoalListNotifier extends StateNotifier<GoalListState> {
 
   /// Delete goal and all associated plans
   Future<bool> deleteGoal(String goalId) async {
+    print('[GoalStateProvider] deleteGoal called with goalId: $goalId');
     state = state.copyWith(isLoading: true, error: null);
 
     try {
+      print('[GoalStateProvider] Calling goal service deleteGoal...');
       final result = await _goalService.deleteGoal(goalId);
+      print('[GoalStateProvider] Delete result: $result');
 
       // Reload goals
+      print('[GoalStateProvider] Reloading goals...');
       await loadGoals();
+      print('[GoalStateProvider] Goals reloaded successfully');
 
       return result;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[GoalStateProvider] Error deleting goal: $e');
+      print('[GoalStateProvider] Stack trace: $stackTrace');
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),

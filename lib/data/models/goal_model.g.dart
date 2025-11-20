@@ -49,7 +49,8 @@ const _$PriorityEnumMap = {
 };
 
 const _$GoalStatusEnumMap = {
-  GoalStatus.inProgress: 'inProgress',
+  GoalStatus.active: 'active',
   GoalStatus.paused: 'paused',
   GoalStatus.completed: 'completed',
+  GoalStatus.deleted: 'deleted',
 };

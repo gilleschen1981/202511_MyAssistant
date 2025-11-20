@@ -5,6 +5,9 @@ import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/presentation/providers/plan_state_provider.dart';
 import 'package:myassistant/presentation/features/planning/widgets/plan_card.dart';
+import 'package:myassistant/presentation/features/planning/widgets/edit_goal_dialog.dart';
+import 'package:myassistant/presentation/features/planning/widgets/create_plan_dialog.dart';
+import 'package:myassistant/presentation/features/planning/widgets/edit_plan_dialog.dart';
 
 /// Goal detail screen - displays goal information and all its associated plans
 class GoalDetailScreen extends ConsumerStatefulWidget {
@@ -17,9 +20,12 @@ class GoalDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
+  late GoalModel _currentGoal;
+
   @override
   void initState() {
     super.initState();
+    _currentGoal = widget.goal;
     // Load plans for this goal
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(planListProvider.notifier).loadGoalPlans(widget.goal.id);
@@ -33,7 +39,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
 
     // Filter plans for this goal
     final goalPlans = [...planState.activePlans, ...planState.completedPlans]
-        .where((plan) => plan.goalId == widget.goal.id)
+        .where((plan) => plan.goalId == _currentGoal.id)
         .toList();
 
     final activePlans = goalPlans.where((p) => p.isActive).toList();
@@ -45,12 +51,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
-            onPressed: () {
-              // TODO: Edit goal
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('编辑功能即将推出')),
-              );
-            },
+            onPressed: () => _showEditGoalDialog(),
           ),
         ],
       ),
@@ -78,7 +79,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          widget.goal.title,
+                          _currentGoal.title,
                           style: theme.textTheme.headlineSmall?.copyWith(
                             color: theme.colorScheme.onPrimaryContainer,
                             fontWeight: FontWeight.bold,
@@ -87,10 +88,10 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
                       ),
                     ],
                   ),
-                  if (widget.goal.description != null) ...[
+                  if (_currentGoal.description != null) ...[
                     const SizedBox(height: 12),
                     Text(
-                      widget.goal.description!,
+                      _currentGoal.description!,
                       style: theme.textTheme.bodyLarge?.copyWith(
                         color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.9),
                       ),
@@ -105,18 +106,18 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
                       _buildInfoChip(
                         context,
                         Icons.calendar_today,
-                        '创建于 ${_formatDate(widget.goal.createdAt)}',
+                        '创建于 ${_formatDate(_currentGoal.createdAt)}',
                       ),
-                      if (widget.goal.deadline != null)
+                      if (_currentGoal.deadline != null)
                         _buildInfoChip(
                           context,
                           Icons.event,
-                          '截止 ${_formatDate(widget.goal.deadline!)}',
+                          '截止 ${_formatDate(_currentGoal.deadline!)}',
                         ),
                       _buildInfoChip(
                         context,
-                        _getStatusIcon(widget.goal.status),
-                        _getStatusLabel(widget.goal.status),
+                        _getStatusIcon(_currentGoal.status),
+                        _getStatusLabel(_currentGoal.status),
                       ),
                     ],
                   ),
@@ -198,7 +199,8 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
                   return PlanCard(
                     plan: plan,
                     onTap: () => _showPlanDetails(plan),
-                    onToggle: () => _togglePlanStatus(plan),
+                    onEdit: () => _showEditPlanDialog(plan),
+                    onDelete: () => _confirmDeletePlan(plan),
                   );
                 },
                 childCount: activePlans.length,
@@ -240,7 +242,6 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
                   return PlanCard(
                     plan: plan,
                     onTap: () => _showPlanDetails(plan),
-                    onToggle: null, // No toggle for completed plans
                   );
                 },
                 childCount: completedPlans.length,
@@ -324,41 +325,32 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
     );
   }
 
-  void _showCreatePlanDialog() {
-    showModalBottomSheet(
+  Future<void> _showEditGoalDialog() async {
+    final updatedGoal = await showDialog<GoalModel>(
       context: context,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '创建新计划',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '为目标"${widget.goal.title}"创建执行计划',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 24),
-            const Text('该功能即将推出！'),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('关闭'),
-                ),
-              ],
-            ),
-          ],
-        ),
+      builder: (context) => EditGoalDialog(goal: _currentGoal),
+    );
+
+    if (updatedGoal != null) {
+      setState(() {
+        _currentGoal = updatedGoal;
+      });
+    }
+  }
+
+  Future<void> _showCreatePlanDialog() async {
+    final plan = await showDialog<PlanModel>(
+      context: context,
+      builder: (context) => CreatePlanDialog(
+        goalId: _currentGoal.id,
+        goalTitle: _currentGoal.title,
       ),
     );
+
+    // Reload plans if a new plan was created
+    if (plan != null) {
+      ref.read(planListProvider.notifier).loadGoalPlans(_currentGoal.id);
+    }
   }
 
   void _showPlanDetails(PlanModel plan) {
@@ -368,11 +360,63 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
     );
   }
 
-  void _togglePlanStatus(PlanModel plan) {
-    // TODO: Implement plan status toggle
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('切换计划状态: ${plan.name}')),
+  Future<void> _showEditPlanDialog(PlanModel plan) async {
+    final updatedPlan = await showDialog<PlanModel>(
+      context: context,
+      builder: (context) => EditPlanDialog(plan: plan),
     );
+
+    // Reload plans if plan was updated
+    if (updatedPlan != null) {
+      ref.read(planListProvider.notifier).loadGoalPlans(_currentGoal.id);
+    }
+  }
+
+  Future<void> _confirmDeletePlan(PlanModel plan) async {
+    print('[GoalDetailScreen] _confirmDeletePlan called for plan: ${plan.name} (${plan.id})');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除计划'),
+        content: Text('确定要删除计划"${plan.name}"吗？此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    print('[GoalDetailScreen] User confirmation: $confirmed');
+    if (confirmed == true) {
+      print('[GoalDetailScreen] Calling deletePlan...');
+      final success = await ref.read(planListProvider.notifier).deletePlan(plan.id);
+      print('[GoalDetailScreen] Delete success: $success');
+
+      if (success && mounted) {
+        print('[GoalDetailScreen] Showing success message and reloading plans');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('计划"${plan.name}"已删除')),
+        );
+        // Reload plans
+        ref.read(planListProvider.notifier).loadGoalPlans(_currentGoal.id);
+      } else if (mounted) {
+        print('[GoalDetailScreen] Showing failure message');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('删除计划失败,请重试')),
+        );
+      }
+    } else {
+      print('[GoalDetailScreen] User cancelled deletion');
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -381,23 +425,27 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
 
   IconData _getStatusIcon(GoalStatus status) {
     switch (status) {
-      case GoalStatus.inProgress:
+      case GoalStatus.active:
         return Icons.play_circle_outline;
       case GoalStatus.paused:
         return Icons.pause_circle_outline;
       case GoalStatus.completed:
         return Icons.check_circle_outline;
+      case GoalStatus.deleted:
+        return Icons.delete_outline;
     }
   }
 
   String _getStatusLabel(GoalStatus status) {
     switch (status) {
-      case GoalStatus.inProgress:
+      case GoalStatus.active:
         return '进行中';
       case GoalStatus.paused:
         return '已暂停';
       case GoalStatus.completed:
         return '已完成';
+      case GoalStatus.deleted:
+        return '已删除';
     }
   }
 }

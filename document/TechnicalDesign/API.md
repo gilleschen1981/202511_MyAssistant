@@ -43,30 +43,46 @@ enum UserStatus {
 ### GoalModel
 Represents a user's goal.
 
+**Note**: Goal uses `status='deleted'` for soft delete instead of a separate `isDeleted` field,
+since GoalStatus enum includes a `deleted` state.
+
 ```dart
 class GoalModel {
   final String id;           // UUID
   final String userId;       // Owner's ID
   final String title;        // Goal title
   final String? description; // Optional description
-  final DateTime deadline;   // Target completion date
+  final DateTime? deadline;  // Target completion date
   final List<String> tags;   // Categorization tags
-  final GoalStatus status;   // Current status
+  final Priority priority;   // Priority: high/medium/low
+  final GoalStatus status;   // Current status (includes 'deleted')
+  final String? successCriteria; // Success criteria/KPI
   final DateTime createdAt;  // Creation time
-  final DateTime? completedAt; // Completion time
-  final bool isDeleted;      // Soft delete flag
+  final DateTime updatedAt;  // Last update time
+  final DateTime? deletedAt; // Deletion time (for audit trail)
+
+  // Computed property
+  bool get isDeleted => status == GoalStatus.deleted;
 }
 
 enum GoalStatus {
-  active,
-  completed,
-  archived,
-  failed
+  active,      // Active goal
+  paused,      // Temporarily paused
+  completed,   // Successfully completed
+  deleted      // Soft deleted
+}
+
+enum Priority {
+  high,
+  medium,
+  low
 }
 ```
 
 ### PlanModel
 Represents an action plan for achieving a goal.
+
+**Note**: Plan uses `status='deleted'` for soft delete, consistent with Goal and Task.
 
 ```dart
 class PlanModel {
@@ -78,21 +94,23 @@ class PlanModel {
   final DateTime startDate;     // Plan start date
   final DateTime endDate;       // Plan end date
   final RepeatRule repeatRule;  // Recurrence configuration
-  final List<TaskConfiguration> taskConfigs; // Task templates
-  final PlanStatus status;      // Current status
+  final TaskConfiguration taskConfig; // Task template
+  final PlanStatus status;      // Current status (includes 'deleted')
   final DateTime createdAt;     // Creation time
-  final bool isDeleted;         // Soft delete flag
+  final DateTime updatedAt;     // Last update time
+  final DateTime? deletedAt;    // Deletion time (for audit trail)
+
+  // Computed property
+  bool get isDeleted => status == PlanStatus.deleted;
 }
 
 class RepeatRule {
-  final RepeatType type;         // daily/weekly/monthly
-  final List<int>? weekdays;     // For weekly (1-7)
-  final List<int>? monthDays;    // For monthly (1-31)
-  final TimeOfDay? startTime;    // Daily start time
-  final TimeOfDay? endTime;      // Daily end time
+  final RepeatType type;         // oneTime/daily/weekly/monthly/custom
+  final int? customDays;         // For custom (N days)
 }
 
 enum RepeatType {
+  oneTime,
   daily,
   weekly,
   monthly,
@@ -100,16 +118,17 @@ enum RepeatType {
 }
 
 enum PlanStatus {
-  draft,
-  active,
-  paused,
-  completed,
-  archived
+  active,      // Active plan
+  paused,      // Temporarily paused
+  completed,   // Completed
+  deleted      // Soft deleted
 }
 ```
 
 ### TaskModel
 Represents an individual task instance.
+
+**Note**: Task uses `status='deleted'` for soft delete, consistent with Goal and Plan.
 
 ```dart
 class TaskModel {
@@ -121,18 +140,20 @@ class TaskModel {
   final TaskConfiguration config;     // Execution configuration
   final DateTime windowStartTime;     // Execution window start
   final DateTime windowEndTime;       // Execution window end
-  final TaskStatus status;            // Current status
+  final TaskStatus status;            // Current status (includes 'deleted')
   final int currentCount;             // Progress counter
   final DateTime createdAt;           // Creation time
   final DateTime? completedAt;        // Completion time
-  final String? skipReason;           // If skipped
-  final String? originalTaskId;       // For repeat executions
-  final int repeatExecutionCount;     // Repeat counter
+  final DateTime? skippedAt;          // Skip time
+  final int? actualDurationMinutes;   // Actual duration (timer tasks)
+  final String? evaluationResult;     // Evaluation result
+  final String? executionNote;        // Execution note
+  final DateTime? deletedAt;          // Deletion time (for audit trail)
 
   // Computed properties
+  bool get isDeleted => status == TaskStatus.deleted;
   bool get isExpired => DateTime.now().isAfter(windowEndTime);
   bool get canExecute => status == TaskStatus.active && !isExpired;
-  bool get canRepeat => status == TaskStatus.completed && !isExpired;
   double get progress; // 0.0 to 1.0
 }
 
@@ -152,7 +173,7 @@ enum TaskStatus {
   active,
   completed,
   skipped,
-  expired
+  deleted  // Soft deleted
 }
 
 enum TaskType {
@@ -278,13 +299,14 @@ class PlanService {
     required List<TaskConfiguration> taskConfigs,
   });
 
-  /// Updates plan (name cannot be changed)
+  /// Updates plan
+  /// Note: name, goalId, and startDate cannot be changed after creation
   Future<PlanModel> updatePlan({
     required String planId,
     String? description,
-    DateTime? startDate,
     DateTime? endDate,
     RepeatRule? repeatRule,
+    TaskConfiguration? taskConfig,
     PlanStatus? status,
   });
 
@@ -440,7 +462,7 @@ Data access layer for goal operations.
 abstract class GoalRepository {
   Future<GoalModel> createGoal(GoalModel goal);
   Future<GoalModel> updateGoal(GoalModel goal);
-  Future<void> deleteGoal(String id); // Soft delete
+  Future<void> deleteGoal(String id); // Soft delete: sets status='deleted'
   Future<GoalModel?> getGoalById(String id);
   Future<List<GoalModel>> getUserGoals(String userId);
   Future<List<GoalModel>> getActiveGoals(String userId);
@@ -454,7 +476,7 @@ Data access layer for plan operations.
 abstract class PlanRepository {
   Future<PlanModel> createPlan(PlanModel plan);
   Future<PlanModel> updatePlan(PlanModel plan);
-  Future<void> deletePlan(String id); // Soft delete
+  Future<void> deletePlan(String id); // Soft delete: sets status='deleted'
   Future<PlanModel?> getPlanById(String id);
   Future<List<PlanModel>> getPlansForGoal(String goalId);
   Future<List<PlanModel>> getActivePlans(String userId);
@@ -469,7 +491,7 @@ Data access layer for task operations.
 abstract class TaskRepository {
   Future<TaskModel> createTask(TaskModel task);
   Future<TaskModel> updateTask(TaskModel task);
-  // Note: No deleteTask - tasks cannot be deleted
+  Future<void> deleteTasksByPlanId(String planId); // Soft delete: sets status='deleted'
   Future<TaskModel?> getTaskById(String id);
   Future<List<TaskModel>> getTasksForPlan(String planId);
   Future<List<TaskModel>> getTasksInTimeRange({
@@ -580,41 +602,51 @@ CREATE TABLE users (
   status TEXT NOT NULL
 );
 
--- Goals table
+-- Goals table (uses status='deleted' for soft delete)
 CREATE TABLE goals (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
   title TEXT NOT NULL,
   description TEXT,
-  deadline TEXT NOT NULL,
+  deadline INTEGER,
   tags TEXT, -- JSON array
-  status TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  completed_at TEXT,
-  is_deleted INTEGER DEFAULT 0,
-  FOREIGN KEY (user_id) REFERENCES users (id)
+  priority TEXT NOT NULL DEFAULT 'medium',
+  status TEXT NOT NULL DEFAULT 'active',
+  success_criteria TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  deleted_at INTEGER, -- Deletion time for audit trail
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CHECK (priority IN ('high', 'medium', 'low')),
+  CHECK (status IN ('active', 'paused', 'completed', 'deleted'))
 );
 
--- Plans table (name is immutable)
+-- Plans table (name is immutable, uses status='deleted' for soft delete)
 CREATE TABLE plans (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
   goal_id TEXT NOT NULL,
   name TEXT NOT NULL, -- Immutable, unique per user
   description TEXT,
-  start_date TEXT NOT NULL,
-  end_date TEXT NOT NULL,
-  repeat_rule TEXT NOT NULL, -- JSON object
-  task_configs TEXT NOT NULL, -- JSON array
-  status TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  is_deleted INTEGER DEFAULT 0,
-  FOREIGN KEY (user_id) REFERENCES users (id),
-  FOREIGN KEY (goal_id) REFERENCES goals (id),
+  start_date INTEGER NOT NULL,
+  end_date INTEGER NOT NULL,
+  repeat_type TEXT NOT NULL,
+  custom_days INTEGER,
+  task_config TEXT NOT NULL, -- JSON object
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  deleted_at INTEGER, -- Deletion time for audit trail
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  FOREIGN KEY (goal_id) REFERENCES goals (id) ON DELETE CASCADE,
+  CHECK (repeat_type IN ('oneTime', 'daily', 'weekly', 'monthly', 'custom')),
+  CHECK (status IN ('active', 'paused', 'completed', 'deleted')),
   UNIQUE (user_id, name) -- Ensure unique plan names per user
 );
 
--- Tasks table (no deletion support)
+-- Tasks table (uses status='deleted' for soft delete)
+-- Note: Each task execution is an independent task record
+-- No "repeat execution" concept - creating a new task copies the configuration
 CREATE TABLE tasks (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
@@ -622,26 +654,35 @@ CREATE TABLE tasks (
   name TEXT NOT NULL,
   description TEXT,
   config TEXT NOT NULL, -- JSON object
-  window_start_time TEXT NOT NULL,
-  window_end_time TEXT NOT NULL,
-  status TEXT NOT NULL,
+  window_start_time INTEGER NOT NULL,
+  window_end_time INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
   current_count INTEGER DEFAULT 0,
-  created_at TEXT NOT NULL,
-  completed_at TEXT,
-  skip_reason TEXT,
-  original_task_id TEXT, -- For repeat executions
-  repeat_execution_count INTEGER DEFAULT 0,
-  FOREIGN KEY (user_id) REFERENCES users (id),
-  FOREIGN KEY (plan_id) REFERENCES plans (id)
+  completed_at INTEGER,
+  skipped_at INTEGER,
+  actual_duration_minutes INTEGER,
+  evaluation_result TEXT,
+  execution_note TEXT,
+  created_at INTEGER NOT NULL,
+  deleted_at INTEGER, -- Deletion time for audit trail
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  FOREIGN KEY (plan_id) REFERENCES plans (id) ON DELETE CASCADE,
+  CHECK (status IN ('active', 'completed', 'skipped', 'deleted')),
+  CHECK (window_end_time >= window_start_time)
 );
 
--- Task executions table
-CREATE TABLE task_executions (
-  id TEXT PRIMARY KEY,
+-- Task history table (audit log)
+CREATE TABLE task_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   task_id TEXT NOT NULL,
-  execution_data TEXT, -- JSON object
-  timestamp TEXT NOT NULL,
-  FOREIGN KEY (task_id) REFERENCES tasks (id)
+  user_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  old_status TEXT,
+  new_status TEXT,
+  metadata TEXT,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 ```
 
@@ -650,7 +691,7 @@ CREATE TABLE task_executions (
 ```dart
 class DatabaseHelper {
   static const String _databaseName = 'myassistant.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 4;
 
   Future<Database> get database async {
     return await openDatabase(

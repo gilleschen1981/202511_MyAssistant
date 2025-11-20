@@ -32,9 +32,8 @@ void main() {
       expect(task.config.taskType, TaskType.timer);
       expect(task.status, TaskStatus.active);
       expect(task.currentCount, 0);
-      expect(task.repeatExecutionCount, 0);
       expect(task.description, null);
-      expect(task.originalTaskId, null);
+      expect(task.deletedAt, null);
     });
 
     test('should correctly identify task type from configuration', () {
@@ -157,67 +156,65 @@ void main() {
       expect(expiredTask.canExecute, false);
     });
 
-    test('should check if task can be repeated', () {
+    test('should check if task is in current window', () {
       final now = DateTime.now();
-      final completedTaskInWindow = TaskModel(
+      final taskInWindow = TaskModel(
         id: 'task-123',
         userId: 'user-123',
         planId: 'plan-123',
-        name: 'Completed Task',
+        name: 'Task In Window',
         config: const TaskConfiguration(),
         windowStartTime: now.subtract(const Duration(minutes: 30)),
         windowEndTime: now.add(const Duration(minutes: 30)),
-        status: TaskStatus.completed,
-        completedAt: now,
+        status: TaskStatus.active,
         createdAt: now,
       );
 
-      final completedTaskOutOfWindow = TaskModel(
+      final taskOutOfWindow = TaskModel(
         id: 'task-456',
         userId: 'user-123',
         planId: 'plan-123',
-        name: 'Old Completed Task',
+        name: 'Task Out Of Window',
         config: const TaskConfiguration(),
         windowStartTime: now.subtract(const Duration(hours: 2)),
         windowEndTime: now.subtract(const Duration(hours: 1)),
-        status: TaskStatus.completed,
-        completedAt: now.subtract(const Duration(hours: 1, minutes: 30)),
+        status: TaskStatus.active,
         createdAt: now.subtract(const Duration(hours: 2)),
       );
 
-      expect(completedTaskInWindow.canRepeat, true);
-      expect(completedTaskOutOfWindow.canRepeat, false);
+      expect(taskInWindow.isInCurrentWindow, true);
+      expect(taskOutOfWindow.isInCurrentWindow, false);
     });
 
-    test('should identify repeat execution correctly', () {
-      final originalTask = TaskModel(
+    test('should handle soft delete correctly', () {
+      final now = DateTime.now();
+      final deletedTask = TaskModel(
         id: 'task-123',
         userId: 'user-123',
         planId: 'plan-123',
-        name: 'Original Task',
+        name: 'Deleted Task',
         config: const TaskConfiguration(),
-        windowStartTime: DateTime.now(),
-        windowEndTime: DateTime.now().add(const Duration(hours: 1)),
+        windowStartTime: now,
+        windowEndTime: now.add(const Duration(hours: 1)),
         status: TaskStatus.active,
-        createdAt: DateTime.now(),
+        createdAt: now,
+        deletedAt: now,
       );
 
-      final repeatTask = TaskModel(
+      final activeTask = TaskModel(
         id: 'task-456',
         userId: 'user-123',
         planId: 'plan-123',
-        name: 'Original Task',
+        name: 'Active Task',
         config: const TaskConfiguration(),
-        windowStartTime: DateTime.now(),
-        windowEndTime: DateTime.now().add(const Duration(hours: 1)),
+        windowStartTime: now,
+        windowEndTime: now.add(const Duration(hours: 1)),
         status: TaskStatus.active,
-        originalTaskId: 'task-123',
-        repeatExecutionCount: 1,
-        createdAt: DateTime.now(),
+        createdAt: now,
       );
 
-      expect(originalTask.isRepeatExecution, false);
-      expect(repeatTask.isRepeatExecution, true);
+      expect(deletedTask.deletedAt, isNotNull);
+      expect(activeTask.deletedAt, isNull);
     });
 
     test('should serialize to JSON correctly', () {

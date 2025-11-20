@@ -53,6 +53,9 @@ PlanModel _$PlanModelFromJson(Map<String, dynamic> json) => PlanModel(
   taskConfig: TaskConfiguration.fromJson(
     json['taskConfig'] as Map<String, dynamic>,
   ),
+  status:
+      $enumDecodeNullable(_$PlanStatusEnumMap, json['status']) ??
+      PlanStatus.active,
   createdAt: DateTime.parse(json['createdAt'] as String),
   updatedAt: DateTime.parse(json['updatedAt'] as String),
   deletedAt: json['deletedAt'] == null
@@ -70,7 +73,15 @@ Map<String, dynamic> _$PlanModelToJson(PlanModel instance) => <String, dynamic>{
   'endDate': instance.endDate.toIso8601String(),
   'repeatRule': instance.repeatRule,
   'taskConfig': instance.taskConfig,
+  'status': _$PlanStatusEnumMap[instance.status]!,
   'createdAt': instance.createdAt.toIso8601String(),
   'updatedAt': instance.updatedAt.toIso8601String(),
   'deletedAt': instance.deletedAt?.toIso8601String(),
+};
+
+const _$PlanStatusEnumMap = {
+  PlanStatus.active: 'active',
+  PlanStatus.paused: 'paused',
+  PlanStatus.completed: 'completed',
+  PlanStatus.deleted: 'deleted',
 };

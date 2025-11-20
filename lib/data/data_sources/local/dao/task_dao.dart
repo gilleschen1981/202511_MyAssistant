@@ -4,7 +4,6 @@ import 'package:myassistant/data/data_sources/local/database/app_database.dart';
 import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
-import 'package:uuid/uuid.dart';
 
 /// Task Data Access Object
 /// Note: Tasks cannot be deleted as per business rules
@@ -13,7 +12,6 @@ class TaskDao {
   static const String _tableTaskHistory = 'task_history';
 
   final AppDatabase _database = AppDatabase.instance;
-  final _uuid = const Uuid();
 
   /// Insert task (system generated only)
   Future<TaskModel> insertTask(TaskModel task) async {
@@ -38,8 +36,6 @@ class TaskDao {
       'actual_duration_minutes': task.actualDurationMinutes,
       'evaluation_result': task.evaluationResult,
       'execution_note': task.executionNote,
-      'repeat_execution_count': task.repeatExecutionCount,
-      'original_task_id': task.originalTaskId,
       'created_at': AppDatabase.dateTimeToTimestamp(task.createdAt),
     };
 
@@ -60,20 +56,9 @@ class TaskDao {
     return task;
   }
 
-  /// Create a repeat execution of an existing task
-  Future<TaskModel?> createRepeatExecution(String originalTaskId) async {
-    // Get the original task
-    final originalTask = await getTaskById(originalTaskId);
-    if (originalTask == null) return null;
-
-    // Check if task can be repeated
-    if (!originalTask.canRepeat) return null;
-
-    // Create new task as repeat execution
-    final newTask = originalTask.createRepeatExecution(_uuid.v4());
-
-    return await insertTask(newTask);
-  }
+  // Note: Repeat execution is no longer supported in v4.0
+  // Each task is now an independent entity
+  // To "repeat" a task, create a new independent task with the same configuration
 
   /// Get task by ID
   Future<TaskModel?> getTaskById(String taskId) async {
@@ -293,6 +278,21 @@ class TaskDao {
     return updatedTask;
   }
 
+  /// Soft delete task (sets status='deleted')
+  Future<int> deleteTask(String taskId) async {
+    final db = await _database.database;
+    final timestamp = AppDatabase.getCurrentTimestamp();
+    return await db.update(
+      _tableTasks,
+      {
+        'status': 'deleted',
+        'deleted_at': timestamp,
+      },
+      where: 'id = ?',
+      whereArgs: [taskId],
+    );
+  }
+
   /// Update task progress (for counter tasks)
   Future<TaskModel?> updateTaskProgress(String taskId, int currentCount) async {
     final db = await _database.database;
@@ -395,6 +395,9 @@ class TaskDao {
         case TaskStatus.active:
           active++;
           break;
+        case TaskStatus.deleted:
+          // Skip deleted tasks in statistics
+          break;
       }
     }
 
@@ -432,13 +435,6 @@ class TaskDao {
     return completed / total;
   }
 
-  /// Check if task can be repeated
-  Future<bool> canRepeatTask(String taskId) async {
-    final task = await getTaskById(taskId);
-    if (task == null) return false;
-
-    return task.canRepeat;
-  }
 
   /// Get active task for plan (only one active task per plan)
   Future<TaskModel?> getActivePlanTask(String planId) async {
@@ -475,8 +471,6 @@ class TaskDao {
         'window_end_time': AppDatabase.dateTimeToTimestamp(task.windowEndTime),
         'status': task.status.toDbString(),
         'current_count': task.currentCount,
-        'repeat_execution_count': task.repeatExecutionCount,
-        'original_task_id': task.originalTaskId,
         'created_at': AppDatabase.dateTimeToTimestamp(task.createdAt),
       };
 
@@ -587,9 +581,10 @@ class TaskDao {
       actualDurationMinutes: map['actual_duration_minutes'] as int?,
       evaluationResult: map['evaluation_result'] as String?,
       executionNote: map['execution_note'] as String?,
-      repeatExecutionCount: map['repeat_execution_count'] as int? ?? 0,
-      originalTaskId: map['original_task_id'] as String?,
       createdAt: AppDatabase.timestampToDateTime(map['created_at'] as int),
+      deletedAt: map['deleted_at'] != null
+          ? AppDatabase.timestampToDateTime(map['deleted_at'] as int)
+          : null,
     );
   }
 }

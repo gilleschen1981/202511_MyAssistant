@@ -185,22 +185,35 @@ class GoalManagementService {
   /// Delete goal and all associated plans
   /// Note: Tasks will be cascaded deleted when plans are deleted
   Future<bool> deleteGoal(String goalId) async {
+    print('[GoalManagementService] deleteGoal called with goalId: $goalId');
+
     // 1. Get goal
+    print('[GoalManagementService] Fetching goal...');
     final goal = await _goalRepository.getGoalById(goalId);
     if (goal == null) {
+      print('[GoalManagementService] Goal not found: $goalId');
       throw const NotFoundException('Goal not found');
     }
+    print('[GoalManagementService] Goal found: ${goal.id}, status: ${goal.status}');
 
     // 2. Get all plans for this goal
+    print('[GoalManagementService] Fetching plans for goal...');
     final plans = await _planRepository.getGoalPlans(goalId);
+    print('[GoalManagementService] Found ${plans.length} plans');
 
     // 3. Delete all plans (tasks will be cascade deleted)
+    print('[GoalManagementService] Deleting ${plans.length} plans...');
     for (final plan in plans) {
+      print('[GoalManagementService] Deleting plan: ${plan.id}');
       await _planRepository.deletePlan(plan.id);
     }
+    print('[GoalManagementService] All plans deleted');
 
     // 4. Delete the goal
-    return await _goalRepository.deleteGoal(goalId);
+    print('[GoalManagementService] Deleting goal...');
+    final result = await _goalRepository.deleteGoal(goalId);
+    print('[GoalManagementService] Goal deletion result: $result');
+    return result;
   }
 
   /// Calculate goal progress

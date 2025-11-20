@@ -26,9 +26,10 @@ TaskModel _$TaskModelFromJson(Map<String, dynamic> json) => TaskModel(
   actualDurationMinutes: (json['actualDurationMinutes'] as num?)?.toInt(),
   evaluationResult: json['evaluationResult'] as String?,
   executionNote: json['executionNote'] as String?,
-  repeatExecutionCount: (json['repeatExecutionCount'] as num?)?.toInt() ?? 0,
-  originalTaskId: json['originalTaskId'] as String?,
   createdAt: DateTime.parse(json['createdAt'] as String),
+  deletedAt: json['deletedAt'] == null
+      ? null
+      : DateTime.parse(json['deletedAt'] as String),
 );
 
 Map<String, dynamic> _$TaskModelToJson(TaskModel instance) => <String, dynamic>{
@@ -47,13 +48,13 @@ Map<String, dynamic> _$TaskModelToJson(TaskModel instance) => <String, dynamic>{
   'actualDurationMinutes': instance.actualDurationMinutes,
   'evaluationResult': instance.evaluationResult,
   'executionNote': instance.executionNote,
-  'repeatExecutionCount': instance.repeatExecutionCount,
-  'originalTaskId': instance.originalTaskId,
   'createdAt': instance.createdAt.toIso8601String(),
+  'deletedAt': instance.deletedAt?.toIso8601String(),
 };
 
 const _$TaskStatusEnumMap = {
   TaskStatus.active: 'active',
   TaskStatus.completed: 'completed',
   TaskStatus.skipped: 'skipped',
+  TaskStatus.deleted: 'deleted',
 };

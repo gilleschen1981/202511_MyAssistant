@@ -20,12 +20,14 @@ class EnumHelper {
   /// Get localization key for GoalStatus
   static String getGoalStatusKey(GoalStatus status) {
     switch (status) {
-      case GoalStatus.inProgress:
+      case GoalStatus.active:
         return StringConstants.goalStatusInProgress;
       case GoalStatus.paused:
         return StringConstants.goalStatusPaused;
       case GoalStatus.completed:
         return StringConstants.goalStatusCompleted;
+      case GoalStatus.deleted:
+        return StringConstants.goalStatusDeleted;
     }
   }
 
@@ -38,6 +40,8 @@ class EnumHelper {
         return StringConstants.taskStatusCompleted;
       case TaskStatus.skipped:
         return StringConstants.taskStatusSkipped;
+      case TaskStatus.deleted:
+        return StringConstants.taskStatusDeleted;
     }
   }
 

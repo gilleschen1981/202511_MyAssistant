@@ -69,15 +69,6 @@ class TaskRepository implements ITaskRepository {
   }
 
   @override
-  Future<TaskModel> createRepeatExecution(String originalTaskId) async {
-    final result = await _taskDao.createRepeatExecution(originalTaskId);
-    if (result == null) {
-      throw Exception('Cannot create repeat execution for this task');
-    }
-    return result;
-  }
-
-  @override
   Future<TaskModel?> getTaskById(String taskId) async {
     return await _taskDao.getTaskById(taskId);
   }
@@ -233,11 +224,6 @@ class TaskRepository implements ITaskRepository {
   }
 
   @override
-  Future<List<TaskModel>> getTaskExecutionHistory(String originalTaskId) async {
-    return await _taskDao.getTaskExecutionHistory(originalTaskId);
-  }
-
-  @override
   Future<Map<String, dynamic>> getTaskStatistics(String userId) async {
     return await _taskDao.getTaskStatistics(userId);
   }
@@ -253,11 +239,6 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<double> getTaskCompletionRate(String userId, {int days = 30}) async {
     return await _taskDao.getTaskCompletionRate(userId, days: days);
-  }
-
-  @override
-  Future<bool> canRepeatTask(String taskId) async {
-    return await _taskDao.canRepeatTask(taskId);
   }
 
   @override
@@ -308,5 +289,29 @@ class TaskRepository implements ITaskRepository {
     // This is handled internally by TaskDao
     // Exposed here for special cases or manual tracking
     return true;
+  }
+
+  @override
+  Future<bool> deleteTask(String taskId) async {
+    print('[TaskRepository] deleteTask called with taskId: $taskId');
+    final result = await _taskDao.deleteTask(taskId);
+    print('[TaskRepository] Task delete result (rows affected): $result');
+    return result > 0;
+  }
+
+  @override
+  Future<bool> deletePlanTasks(String planId) async {
+    print('[TaskRepository] deletePlanTasks called with planId: $planId');
+    final tasks = await _taskDao.getPlanTasks(planId);
+    print('[TaskRepository] Found ${tasks.length} tasks to delete for plan');
+
+    int deletedCount = 0;
+    for (final task in tasks) {
+      final result = await _taskDao.deleteTask(task.id);
+      if (result > 0) deletedCount++;
+    }
+
+    print('[TaskRepository] Successfully deleted $deletedCount tasks');
+    return deletedCount == tasks.length;
   }
 }
