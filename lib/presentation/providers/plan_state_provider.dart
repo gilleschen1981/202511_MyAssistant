@@ -5,6 +5,7 @@ import 'package:myassistant/domain/repositories/i_plan_repository.dart';
 import 'package:myassistant/di/providers/repository_providers.dart';
 import 'package:myassistant/di/providers/service_providers.dart';
 import 'package:myassistant/presentation/providers/auth_state_provider.dart';
+import 'package:myassistant/presentation/providers/task_state_provider.dart';
 
 /// Plan list state
 class PlanListState {
@@ -150,6 +151,9 @@ class PlanListNotifier extends StateNotifier<PlanListState> {
 
       // Reload plans
       await loadPlans();
+
+      // Reload tasks since new task was generated
+      _ref.read(taskListProvider.notifier).loadTasks();
 
       return plan;
     } catch (e) {

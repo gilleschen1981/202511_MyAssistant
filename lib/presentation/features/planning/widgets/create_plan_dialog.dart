@@ -8,11 +8,13 @@ import 'package:myassistant/presentation/providers/plan_state_provider.dart';
 class CreatePlanDialog extends ConsumerStatefulWidget {
   final String goalId;
   final String goalTitle;
+  final DateTime? goalDeadline;
 
   const CreatePlanDialog({
     super.key,
     required this.goalId,
     required this.goalTitle,
+    this.goalDeadline,
   });
 
   @override
@@ -43,8 +45,8 @@ class _CreatePlanDialogState extends ConsumerState<CreatePlanDialog> {
     super.initState();
     // Set default start date to today
     _startDate = DateTime.now();
-    // Set default end date to 7 days from now
-    _endDate = DateTime.now().add(const Duration(days: 7));
+    // Set default end date to goal's deadline or 7 days from now
+    _endDate = widget.goalDeadline ?? DateTime.now().add(const Duration(days: 7));
   }
 
   @override

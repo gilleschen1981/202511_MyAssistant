@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/presentation/providers/task_state_provider.dart';
-import 'package:myassistant/presentation/features/tasks/widgets/task_card.dart';
+import 'package:myassistant/presentation/features/tasks/widgets/compact_task_card.dart';
 import 'package:myassistant/presentation/features/tasks/widgets/task_execution_dialog.dart';
+import 'package:myassistant/presentation/features/tasks/utils/task_grouping.dart';
 
-/// Tasks screen - displays today's tasks
+/// Tasks screen - displays tasks grouped by deadline
 class TasksScreen extends ConsumerStatefulWidget {
   const TasksScreen({super.key});
 
@@ -14,14 +15,19 @@ class TasksScreen extends ConsumerStatefulWidget {
   ConsumerState<TasksScreen> createState() => _TasksScreenState();
 }
 
-class _TasksScreenState extends ConsumerState<TasksScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _TasksScreenState extends ConsumerState<TasksScreen> {
+  // Track expanded state for each group
+  final Map<String, bool> _expandedGroups = {
+    'today': true,
+    'tomorrow': true,
+    'thisWeek': false,
+    'thisMonth': false,
+    'later': false,
+  };
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     // Load tasks on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(taskListProvider.notifier).loadTasks();
@@ -29,135 +35,124 @@ class _TasksScreenState extends ConsumerState<TasksScreen>
   }
 
   @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final taskState = ref.watch(taskListProvider);
+    // Filter out deleted tasks
+    final allTasks = taskState.todayTasks
+        .where((task) => task.status != TaskStatus.deleted)
+        .toList();
 
-    return Column(
-      children: [
-        // Tab bar
-        Container(
-          color: Theme.of(context).colorScheme.surface,
-          child: TabBar(
-            controller: _tabController,
-            tabs: [
-              Tab(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.pending_actions, size: 18),
-                    const SizedBox(width: 8),
-                    Text('Active (${taskState.activeTasks.length})'),
-                  ],
-                ),
-              ),
-              Tab(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.check_circle, size: 18),
-                    const SizedBox(width: 8),
-                    Text('Done (${taskState.completedTasks.length})'),
-                  ],
-                ),
-              ),
-              const Tab(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.today, size: 18),
-                    SizedBox(width: 8),
-                    Text('All'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Tab views
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              // Active tasks
-              _buildTaskList(taskState.activeTasks, TaskStatus.active),
-
-              // Completed tasks
-              _buildTaskList(taskState.completedTasks, TaskStatus.completed),
-
-              // All tasks
-              _buildTaskList(taskState.todayTasks, null),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTaskList(List<TaskModel> tasks, TaskStatus? filterStatus) {
-    if (tasks.isEmpty) {
-      return _buildEmptyState(filterStatus);
+    if (allTasks.isEmpty) {
+      return _buildEmptyState();
     }
+
+    // Group tasks by deadline
+    final groupedTasks = TaskGrouping.groupByDeadline(allTasks);
 
     return RefreshIndicator(
       onRefresh: () async {
         await ref.read(taskListProvider.notifier).refreshTasks();
       },
-      child: ListView.builder(
+      child: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: tasks.length,
-        itemBuilder: (context, index) {
-          final task = tasks[index];
-          return TaskCard(
-            task: task,
-            onTap: () {
-              _showTaskDetails(task);
-            },
-            onComplete: task.status == TaskStatus.active
-                ? () => _completeTask(task)
-                : null,
-            onSkip: task.status == TaskStatus.active
-                ? () => _skipTask(task)
-                : null,
-          );
-        },
+        children: [
+          // Render each group
+          for (final groupKey in TaskGrouping.orderedGroupKeys)
+            if (groupedTasks[groupKey]!.isNotEmpty)
+              _buildTaskGroup(
+                groupKey: groupKey,
+                tasks: groupedTasks[groupKey]!,
+              ),
+        ],
       ),
     );
   }
 
-  Widget _buildEmptyState(TaskStatus? filterStatus) {
-    String message;
-    IconData icon;
+  /// Build a task group with header and grid
+  Widget _buildTaskGroup({
+    required String groupKey,
+    required List<TaskModel> tasks,
+  }) {
+    final isExpanded = _expandedGroups[groupKey] ?? false;
+    final groupName = TaskGrouping.getGroupDisplayName(groupKey, tasks.length);
 
-    if (filterStatus == TaskStatus.active) {
-      message = 'No active tasks\nTake a break!';
-      icon = Icons.coffee;
-    } else if (filterStatus == TaskStatus.completed) {
-      message = 'No completed tasks yet\nStart working on your tasks!';
-      icon = Icons.pending_actions;
-    } else {
-      message = 'No tasks for today\nEnjoy your free time!';
-      icon = Icons.celebration;
-    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Group header
+        InkWell(
+          onTap: () {
+            setState(() {
+              _expandedGroups[groupKey] = !isExpanded;
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                // Expand/collapse icon
+                Icon(
+                  isExpanded ? Icons.arrow_drop_down : Icons.arrow_right,
+                  color: Colors.grey[600],
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                // Group name
+                Text(
+                  groupName,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF424242),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
 
+        // Task grid (only shown when expanded)
+        if (isExpanded)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3, // 3 columns as per design
+                childAspectRatio: 1.5, // Width:Height ratio
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: tasks.length,
+              itemBuilder: (context, index) {
+                final task = tasks[index];
+                return CompactTaskCard(
+                  task: task,
+                  onTap: () => _showTaskDetails(task),
+                );
+              },
+            ),
+          ),
+
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            icon,
+            Icons.celebration,
             size: 80,
             color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
-            message,
+            'No tasks\nEnjoy your free time!',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -174,43 +169,6 @@ class _TasksScreenState extends ConsumerState<TasksScreen>
       isScrollControlled: true,
       builder: (context) => _TaskDetailsSheet(task: task),
     );
-  }
-
-  Future<void> _completeTask(TaskModel task) async {
-    // Show appropriate execution dialog based on task type
-    final completed = await TaskExecutionDialog.show(context, task);
-
-    if (completed == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Task completed!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
-  }
-
-  Future<void> _skipTask(TaskModel task) async {
-    final reason = await showDialog<String>(
-      context: context,
-      builder: (context) => _SkipReasonDialog(),
-    );
-
-    if (reason != null) {
-      await ref.read(taskListProvider.notifier).skipTask(
-            task: task,
-            skipReason: reason,
-          );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Task skipped'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    }
   }
 }
 

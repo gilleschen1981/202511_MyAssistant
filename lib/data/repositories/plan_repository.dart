@@ -4,21 +4,25 @@ import 'package:myassistant/data/data_sources/local/dao/goal_dao.dart';
 import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/domain/repositories/i_plan_repository.dart';
 import 'package:myassistant/domain/repositories/i_goal_repository.dart';
+import 'package:myassistant/domain/repositories/i_task_repository.dart';
 
 /// Plan repository implementation
 class PlanRepository implements IPlanRepository {
   final PlanDao _planDao;
   final GoalDao _goalDao;
   final IGoalRepository _goalRepository;
+  final ITaskRepository _taskRepository;
   final _uuid = const Uuid();
 
   PlanRepository({
     PlanDao? planDao,
     GoalDao? goalDao,
     required IGoalRepository goalRepository,
+    required ITaskRepository taskRepository,
   })  : _planDao = planDao ?? PlanDao(),
         _goalDao = goalDao ?? GoalDao(),
-        _goalRepository = goalRepository;
+        _goalRepository = goalRepository,
+        _taskRepository = taskRepository;
 
   @override
   Future<PlanModel> createPlan({
@@ -161,11 +165,17 @@ class PlanRepository implements IPlanRepository {
     }
     print('[PlanRepository] Plan found: ${plan.name}, goalId: ${plan.goalId}');
 
-    // Remove plan from goal
+    // 1. Delete all tasks for this plan (cascade delete)
+    print('[PlanRepository] Deleting all tasks for plan...');
+    await _taskRepository.deletePlanTasks(planId);
+    print('[PlanRepository] Tasks deleted');
+
+    // 2. Remove plan from goal
     print('[PlanRepository] Removing plan from goal...');
     await _goalRepository.removePlanFromGoal(plan.goalId, planId);
     print('[PlanRepository] Plan removed from goal');
 
+    // 3. Delete the plan
     print('[PlanRepository] Calling DAO.deletePlan...');
     final result = await _planDao.deletePlan(planId);
     print('[PlanRepository] DAO delete result: $result');

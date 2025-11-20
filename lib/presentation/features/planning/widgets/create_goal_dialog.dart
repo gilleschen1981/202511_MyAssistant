@@ -177,9 +177,6 @@ class _CreateGoalDialogState extends ConsumerState<CreateGoalDialog> {
                     if (value == null || value.trim().isEmpty) {
                       return '请输入目标标题';
                     }
-                    if (value.trim().length < 3) {
-                      return '目标标题至少需要3个字符';
-                    }
                     return null;
                   },
                   maxLength: 100,

@@ -8,6 +8,7 @@ import 'package:myassistant/presentation/features/planning/widgets/plan_card.dar
 import 'package:myassistant/presentation/features/planning/widgets/edit_goal_dialog.dart';
 import 'package:myassistant/presentation/features/planning/widgets/create_plan_dialog.dart';
 import 'package:myassistant/presentation/features/planning/widgets/edit_plan_dialog.dart';
+import 'package:myassistant/presentation/features/planning/screens/plan_detail_screen.dart';
 
 /// Goal detail screen - displays goal information and all its associated plans
 class GoalDetailScreen extends ConsumerStatefulWidget {
@@ -344,6 +345,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
       builder: (context) => CreatePlanDialog(
         goalId: _currentGoal.id,
         goalTitle: _currentGoal.title,
+        goalDeadline: _currentGoal.deadline,
       ),
     );
 
@@ -354,9 +356,10 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
   }
 
   void _showPlanDetails(PlanModel plan) {
-    // TODO: Navigate to plan detail or show plan details
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('查看计划: ${plan.name}')),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PlanDetailScreen(plan: plan),
+      ),
     );
   }
 

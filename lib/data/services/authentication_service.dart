@@ -369,8 +369,8 @@ class AuthenticationService {
   /// Validate sign up input
   void _validateSignUpInput(String username, String password, String email) {
     // Username validation
-    if (username.length < 3) {
-      throw const ValidationException('Username must be at least 3 characters');
+    if (username.isEmpty) {
+      throw const ValidationException('Username cannot be empty');
     }
     if (username.length > 20) {
       throw const ValidationException('Username must be less than 20 characters');

@@ -21,24 +21,27 @@ final goalRepositoryProvider = Provider<IGoalRepository>((ref) {
   return GoalRepository(goalDao: goalDao);
 });
 
-/// Plan repository provider
-final planRepositoryProvider = Provider<IPlanRepository>((ref) {
-  final planDao = ref.watch(planDaoProvider);
-  final goalDao = ref.watch(goalDaoProvider);
-  final goalRepository = ref.watch(goalRepositoryProvider);
-  return PlanRepository(
-    planDao: planDao,
-    goalDao: goalDao,
-    goalRepository: goalRepository,
-  );
-});
-
 /// Task repository provider
+/// Note: Defined before PlanRepository to avoid circular dependency
 final taskRepositoryProvider = Provider<ITaskRepository>((ref) {
   final taskDao = ref.watch(taskDaoProvider);
   final planDao = ref.watch(planDaoProvider);
   return TaskRepository(
     taskDao: taskDao,
     planDao: planDao,
+  );
+});
+
+/// Plan repository provider
+final planRepositoryProvider = Provider<IPlanRepository>((ref) {
+  final planDao = ref.watch(planDaoProvider);
+  final goalDao = ref.watch(goalDaoProvider);
+  final goalRepository = ref.watch(goalRepositoryProvider);
+  final taskRepository = ref.watch(taskRepositoryProvider);
+  return PlanRepository(
+    planDao: planDao,
+    goalDao: goalDao,
+    goalRepository: goalRepository,
+    taskRepository: taskRepository,
   );
 });

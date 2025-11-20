@@ -124,9 +124,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your username';
                       }
-                      if (_isSignUpMode && value.length < 3) {
-                        return 'Username must be at least 3 characters';
-                      }
                       return null;
                     },
                   ),
