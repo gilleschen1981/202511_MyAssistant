@@ -166,17 +166,22 @@ class TaskListNotifier extends StateNotifier<TaskListState> {
     required TaskModel task,
     String? skipReason,
   }) async {
+    print('[TaskListNotifier] skipTask called for task: ${task.id}, reason: $skipReason');
     state = state.copyWith(isLoading: true, error: null);
 
     try {
+      print('[TaskListNotifier] Calling executionService.skipTask');
       await _executionService.skipTask(
         task: task,
         skipReason: skipReason,
       );
 
+      print('[TaskListNotifier] Skip successful, reloading tasks');
       // Reload tasks to reflect changes
       await loadTasks();
+      print('[TaskListNotifier] Tasks reloaded successfully');
     } catch (e) {
+      print('[TaskListNotifier] Error skipping task: $e');
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
@@ -222,16 +227,18 @@ class TaskListNotifier extends StateNotifier<TaskListState> {
   }
 
   /// Increment counter
-  Future<void> incrementCount(TaskModel task) async {
+  Future<void> incrementCount(
+    TaskModel task, {
+    String? evaluationResult,
+  }) async {
     try {
-      final updatedTask = await _executionService.incrementCount(task);
+      await _executionService.incrementCount(
+        task,
+        evaluationResult: evaluationResult,
+      );
 
-      // Update task in list
-      final updatedTasks = state.allTasks.map((t) {
-        return t.id == updatedTask.id ? updatedTask : t;
-      }).toList();
-
-      state = state.copyWith(allTasks: updatedTasks);
+      // Reload tasks to reflect changes (including completion if reached target)
+      await loadTasks();
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }

@@ -303,28 +303,38 @@ class TaskExecutionService {
     required TaskModel task,
     String? skipReason,
   }) async {
+    print('[TaskExecutionService] skipTask called for task: ${task.id}');
+    print('[TaskExecutionService] Current task status: ${task.status}');
+
     // 1. Validate task status
     if (task.status != TaskStatus.active) {
+      print('[TaskExecutionService] ERROR: Task is not active');
       throw const BusinessException('Only active tasks can be skipped');
     }
 
     // 2. Skip the task
+    print('[TaskExecutionService] Calling repository.skipTask');
     final skippedTask = await _taskRepository.skipTask(
       taskId: task.id,
       reason: skipReason,
     );
+    print('[TaskExecutionService] Task skipped successfully, new status: ${skippedTask.status}');
 
     // 3. Stop timer if active
     stopTimer(task.id);
 
     // 4. Send skip notification
     await _notificationService.notifyTaskSkipped(skippedTask);
+    print('[TaskExecutionService] Skip notification sent');
 
     return skippedTask;
   }
 
   /// Increment counter (for counter tasks)
-  Future<TaskModel> incrementCount(TaskModel task) async {
+  Future<TaskModel> incrementCount(
+    TaskModel task, {
+    String? evaluationResult,
+  }) async {
     // 1. Validate task type
     if (task.config.repeatCount == null) {
       throw const BusinessException('This is not a counter task');
@@ -343,9 +353,10 @@ class TaskExecutionService {
 
     // 5. Check if reached target
     if (newCount >= task.config.repeatCount!) {
-      // Auto-complete task
+      // Auto-complete task with optional evaluation result
       return (await completeTask(
         task: updatedTask,
+        evaluationResult: evaluationResult,
         executionNote: 'Completed after reaching target count',
       )).completedTask;
     }

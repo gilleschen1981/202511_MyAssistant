@@ -4,7 +4,7 @@ import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/presentation/providers/task_state_provider.dart';
 import 'package:myassistant/presentation/features/tasks/widgets/compact_task_card.dart';
-import 'package:myassistant/presentation/features/tasks/widgets/task_execution_dialog.dart';
+import 'package:myassistant/presentation/features/tasks/widgets/task_quick_menu.dart';
 import 'package:myassistant/presentation/features/tasks/utils/task_grouping.dart';
 
 /// Tasks screen - displays tasks grouped by deadline
@@ -24,6 +24,9 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     'thisMonth': false,
     'later': false,
   };
+
+  // Track last tap position for quick menu
+  Offset _lastTapPosition = Offset.zero;
 
   @override
   void initState() {
@@ -127,9 +130,15 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
               itemCount: tasks.length,
               itemBuilder: (context, index) {
                 final task = tasks[index];
-                return CompactTaskCard(
-                  task: task,
-                  onTap: () => _showTaskDetails(task),
+                return GestureDetector(
+                  onTapDown: (details) {
+                    // Store tap position for menu
+                    _lastTapPosition = details.globalPosition;
+                  },
+                  child: CompactTaskCard(
+                    task: task,
+                    onTap: () => _showQuickMenu(task),
+                  ),
                 );
               },
             ),
@@ -163,220 +172,8 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     );
   }
 
-  void _showTaskDetails(TaskModel task) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => _TaskDetailsSheet(task: task),
-    );
-  }
-}
-
-/// Task details bottom sheet
-class _TaskDetailsSheet extends ConsumerWidget {
-  final TaskModel task;
-
-  const _TaskDetailsSheet({required this.task});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  task.name,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Description
-          if (task.description != null) ...[
-            Text(
-              'Description',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(task.description!),
-            const SizedBox(height: 16),
-          ],
-
-          // Task type info
-          _buildInfoRow(
-            context,
-            'Type',
-            task.config.taskType.name,
-            Icons.category,
-          ),
-          const SizedBox(height: 8),
-
-          // Status
-          _buildInfoRow(
-            context,
-            'Status',
-            task.status.name,
-            Icons.info,
-          ),
-          const SizedBox(height: 8),
-
-          // Window time
-          _buildInfoRow(
-            context,
-            'Time Window',
-            '${_formatTime(task.windowStartTime)} - ${_formatTime(task.windowEndTime)}',
-            Icons.schedule,
-          ),
-
-          const SizedBox(height: 24),
-
-          // Actions
-          if (task.status == TaskStatus.active) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () async {
-                      final reason = await showDialog<String>(
-                        context: context,
-                        builder: (context) => _SkipReasonDialog(),
-                      );
-
-                      if (reason != null && context.mounted) {
-                        await ref.read(taskListProvider.notifier).skipTask(
-                              task: task,
-                              skipReason: reason,
-                            );
-
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Task skipped'),
-                              backgroundColor: Colors.orange,
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    child: const Text('Skip'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () async {
-                      Navigator.pop(context);
-                      final completed = await TaskExecutionDialog.show(context, task);
-                      if (completed == true && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Task completed!'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      }
-                    },
-                    child: const Text('Complete'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(
-    BuildContext context,
-    String label,
-    String value,
-    IconData icon,
-  ) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(width: 12),
-        Text(
-          '$label:',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-      ],
-    );
-  }
-
-  String _formatTime(DateTime dateTime) {
-    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-  }
-}
-
-/// Skip reason dialog
-class _SkipReasonDialog extends StatefulWidget {
-  @override
-  State<_SkipReasonDialog> createState() => _SkipReasonDialogState();
-}
-
-class _SkipReasonDialogState extends State<_SkipReasonDialog> {
-  final _reasonController = TextEditingController();
-
-  @override
-  void dispose() {
-    _reasonController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Skip Task'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Why are you skipping this task?'),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _reasonController,
-            decoration: const InputDecoration(
-              hintText: 'Enter reason (optional)',
-            ),
-            maxLines: 3,
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            Navigator.pop(context, _reasonController.text);
-          },
-          child: const Text('Skip'),
-        ),
-      ],
-    );
+  void _showQuickMenu(TaskModel task) {
+    // Show quick action menu at tap position
+    TaskQuickMenu.show(context, task, _lastTapPosition);
   }
 }
