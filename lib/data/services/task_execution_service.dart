@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'package:myassistant/data/models/task_model.dart';
-import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/data/services/notification_service.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
-import 'package:myassistant/domain/repositories/i_plan_repository.dart';
 import 'package:myassistant/core/errors/exceptions.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Timer session for timer tasks
 class TimerSession {
@@ -140,7 +139,6 @@ class TaskStatistics {
 /// ```
 class TaskExecutionService {
   final ITaskRepository _taskRepository;
-  final IPlanRepository _planRepository;
   final NotificationService _notificationService;
 
   /// Active timer sessions indexed by task ID
@@ -148,10 +146,8 @@ class TaskExecutionService {
 
   TaskExecutionService({
     required ITaskRepository taskRepository,
-    required IPlanRepository planRepository,
     required NotificationService notificationService,
   })  : _taskRepository = taskRepository,
-        _planRepository = planRepository,
         _notificationService = notificationService;
 
   /// Starts a timer session for a timer-based task.
@@ -303,29 +299,29 @@ class TaskExecutionService {
     required TaskModel task,
     String? skipReason,
   }) async {
-    print('[TaskExecutionService] skipTask called for task: ${task.id}');
-    print('[TaskExecutionService] Current task status: ${task.status}');
+    AppLogger.d('skipTask called for task: ${task.id}', tag: 'TaskExecutionService');
+    AppLogger.d('Current task status: ${task.status}', tag: 'TaskExecutionService');
 
     // 1. Validate task status
     if (task.status != TaskStatus.active) {
-      print('[TaskExecutionService] ERROR: Task is not active');
+      AppLogger.w('Task is not active', tag: 'TaskExecutionService');
       throw const BusinessException('Only active tasks can be skipped');
     }
 
     // 2. Skip the task
-    print('[TaskExecutionService] Calling repository.skipTask');
+    AppLogger.d('Calling repository.skipTask', tag: 'TaskExecutionService');
     final skippedTask = await _taskRepository.skipTask(
       taskId: task.id,
       reason: skipReason,
     );
-    print('[TaskExecutionService] Task skipped successfully, new status: ${skippedTask.status}');
+    AppLogger.d('Task skipped successfully, new status: ${skippedTask.status}', tag: 'TaskExecutionService');
 
     // 3. Stop timer if active
     stopTimer(task.id);
 
     // 4. Send skip notification
     await _notificationService.notifyTaskSkipped(skippedTask);
-    print('[TaskExecutionService] Skip notification sent');
+    AppLogger.d('Skip notification sent', tag: 'TaskExecutionService');
 
     return skippedTask;
   }

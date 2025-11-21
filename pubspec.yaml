@@ -50,6 +50,7 @@ dependencies:
   intl: ^0.20.2
   uuid: ^4.2.0
   equatable: ^2.0.0
+  logger: ^2.0.2
 
   # UI Components
   flutter_svg: ^2.0.0

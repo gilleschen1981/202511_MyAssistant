@@ -4,6 +4,7 @@ import 'package:myassistant/data/data_sources/local/database/app_database.dart';
 import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/data/models/enums/task_type.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Plan Data Access Object
 class PlanDao {
@@ -163,10 +164,9 @@ class PlanDao {
 
   /// Soft delete plan (sets status='deleted')
   Future<int> deletePlan(String planId) async {
-    print('[PlanDao] deletePlan called with planId: $planId');
+    AppLogger.d('deletePlan called with planId: $planId', tag: 'PlanDao');
     final db = await _database.database;
     final timestamp = AppDatabase.getCurrentTimestamp();
-    print('[PlanDao] Soft deleting plan with timestamp: $timestamp');
     final result = await db.update(
       _tablePlans,
       {
@@ -177,7 +177,7 @@ class PlanDao {
       where: 'id = ?',
       whereArgs: [planId],
     );
-    print('[PlanDao] Soft delete result (rows affected): $result');
+    AppLogger.i('Soft delete result (rows affected): $result', tag: 'PlanDao');
     return result;
   }
 

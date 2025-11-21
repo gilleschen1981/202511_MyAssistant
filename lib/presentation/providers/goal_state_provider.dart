@@ -7,6 +7,7 @@ import 'package:myassistant/domain/repositories/i_goal_repository.dart';
 import 'package:myassistant/di/providers/repository_providers.dart';
 import 'package:myassistant/di/providers/service_providers.dart';
 import 'package:myassistant/presentation/providers/auth_state_provider.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Goal list state
 class GoalListState {
@@ -109,25 +110,18 @@ class GoalListNotifier extends StateNotifier<GoalListState> {
     List<String>? tags,
     String? successCriteria,
   }) async {
-    print('[GoalListNotifier] createGoal called with:');
-    print('  - title: $title');
-    print('  - description: $description');
-    print('  - deadline: $deadline');
-    print('  - priority: $priority');
-    print('  - tags: $tags');
-    print('  - successCriteria: $successCriteria');
+    AppLogger.d('createGoal called with title: $title', tag: 'GoalListNotifier');
 
     final user = _ref.read(currentUserProvider);
-    print('[GoalListNotifier] Current user: ${user?.id ?? "null"}');
     if (user == null) {
-      print('[GoalListNotifier] No user found, returning null');
+      AppLogger.w('No user found, returning null', tag: 'GoalListNotifier');
       return null;
     }
 
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      print('[GoalListNotifier] Calling _goalService.createGoal...');
+      AppLogger.d('Calling _goalService.createGoal...', tag: 'GoalListNotifier');
       final goal = await _goalService.createGoal(
         userId: user.id,
         title: title,
@@ -137,16 +131,16 @@ class GoalListNotifier extends StateNotifier<GoalListState> {
         tags: tags,
         successCriteria: successCriteria,
       );
-      print('[GoalListNotifier] Goal created successfully: ${goal.id}');
+      AppLogger.i('Goal created successfully: ${goal.id}', tag: 'GoalListNotifier');
 
       // Reload goals
-      print('[GoalListNotifier] Reloading goals...');
+      AppLogger.d('Reloading goals...', tag: 'GoalListNotifier');
       await loadGoals();
-      print('[GoalListNotifier] Goals reloaded');
+      AppLogger.d('Goals reloaded', tag: 'GoalListNotifier');
 
       return goal;
     } catch (e) {
-      print('[GoalListNotifier] Error creating goal: $e');
+      AppLogger.e('Error creating goal: $e', tag: 'GoalListNotifier', error: e);
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
@@ -213,23 +207,22 @@ class GoalListNotifier extends StateNotifier<GoalListState> {
 
   /// Delete goal and all associated plans
   Future<bool> deleteGoal(String goalId) async {
-    print('[GoalStateProvider] deleteGoal called with goalId: $goalId');
+    AppLogger.d('deleteGoal called with goalId: $goalId', tag: 'GoalStateProvider');
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      print('[GoalStateProvider] Calling goal service deleteGoal...');
+      AppLogger.d('Calling goal service deleteGoal...', tag: 'GoalStateProvider');
       final result = await _goalService.deleteGoal(goalId);
-      print('[GoalStateProvider] Delete result: $result');
+      AppLogger.d('Delete result: $result', tag: 'GoalStateProvider');
 
       // Reload goals
-      print('[GoalStateProvider] Reloading goals...');
+      AppLogger.d('Reloading goals...', tag: 'GoalStateProvider');
       await loadGoals();
-      print('[GoalStateProvider] Goals reloaded successfully');
+      AppLogger.i('Goals reloaded successfully', tag: 'GoalStateProvider');
 
       return result;
     } catch (e, stackTrace) {
-      print('[GoalStateProvider] Error deleting goal: $e');
-      print('[GoalStateProvider] Stack trace: $stackTrace');
+      AppLogger.e('Error deleting goal: $e', tag: 'GoalStateProvider', error: e, stackTrace: stackTrace);
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),

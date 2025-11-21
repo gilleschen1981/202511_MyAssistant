@@ -4,6 +4,7 @@ import 'package:myassistant/data/models/goal_model.dart';
 import 'package:myassistant/data/models/enums/priority.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/domain/repositories/i_goal_repository.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Goal repository implementation
 class GoalRepository implements IGoalRepository {
@@ -22,14 +23,7 @@ class GoalRepository implements IGoalRepository {
     Priority priority = Priority.medium,
     String? successCriteria,
   }) async {
-    print('[GoalRepository] createGoal called with:');
-    print('  - userId: $userId');
-    print('  - title: $title');
-    print('  - description: $description');
-    print('  - tags: $tags');
-    print('  - deadline: $deadline');
-    print('  - priority: $priority');
-    print('  - successCriteria: $successCriteria');
+    AppLogger.d('createGoal called with: userId=$userId, title=$title', tag: 'GoalRepository');
 
     final now = DateTime.now();
     final goal = GoalModel(
@@ -46,14 +40,14 @@ class GoalRepository implements IGoalRepository {
       updatedAt: now,
       planIds: const [],
     );
-    print('[GoalRepository] Created GoalModel with id: ${goal.id}');
+    AppLogger.d('Created GoalModel with id: ${goal.id}', tag: 'GoalRepository');
 
     try {
       final result = await _goalDao.insertGoal(goal);
-      print('[GoalRepository] Goal inserted successfully');
+      AppLogger.i('Goal inserted successfully', tag: 'GoalRepository');
       return result;
     } catch (e) {
-      print('[GoalRepository] Error inserting goal: $e');
+      AppLogger.e('Error inserting goal: $e', tag: 'GoalRepository', error: e);
       rethrow;
     }
   }
@@ -173,30 +167,30 @@ class GoalRepository implements IGoalRepository {
 
   @override
   Future<bool> removePlanFromGoal(String goalId, String planId) async {
-    print('[GoalRepository] removePlanFromGoal called - goalId: $goalId, planId: $planId');
+    AppLogger.d('removePlanFromGoal called - goalId: $goalId, planId: $planId', tag: 'GoalRepository');
     final goal = await _goalDao.getGoalById(goalId);
     if (goal == null) {
-      print('[GoalRepository] Goal not found');
+      AppLogger.w('Goal not found', tag: 'GoalRepository');
       return false;
     }
-    print('[GoalRepository] Goal found: ${goal.title}, planIds count: ${goal.planIds.length}');
+    AppLogger.d('Goal found: ${goal.title}, planIds count: ${goal.planIds.length}', tag: 'GoalRepository');
 
     if (goal.planIds.contains(planId)) {
-      print('[GoalRepository] Plan found in goal, removing...');
+      AppLogger.d('Plan found in goal, removing...', tag: 'GoalRepository');
       final updatedPlanIds = goal.planIds.where((id) => id != planId).toList();
-      print('[GoalRepository] Updated planIds count: ${updatedPlanIds.length}');
+      AppLogger.d('Updated planIds count: ${updatedPlanIds.length}', tag: 'GoalRepository');
       final updatedGoal = goal.copyWith(
         planIds: updatedPlanIds,
         updatedAt: DateTime.now(),
       );
 
-      print('[GoalRepository] Updating goal in DAO...');
+      AppLogger.d('Updating goal in DAO...', tag: 'GoalRepository');
       final result = await _goalDao.updateGoal(updatedGoal);
-      print('[GoalRepository] DAO update result: $result');
+      AppLogger.d('DAO update result: $result', tag: 'GoalRepository');
       return result > 0;
     }
 
-    print('[GoalRepository] Plan not found in goal, returning true');
+    AppLogger.d('Plan not found in goal, returning true', tag: 'GoalRepository');
     return true;
   }
 

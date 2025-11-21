@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:myassistant/core/constants/app_constants.dart';
 import 'package:myassistant/core/constants/demo_user_constants.dart';
 import 'package:myassistant/data/data_sources/local/database/database_interface.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Main database class for the application
 class AppDatabase implements DatabaseInterface {
@@ -22,10 +23,10 @@ class AppDatabase implements DatabaseInterface {
 
   /// Initialize database
   Future<Database> _initDatabase() async {
-    print('[AppDatabase] Starting database initialization...');
+    AppLogger.i('Starting database initialization...', tag: 'AppDatabase');
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, AppConstants.databaseName);
-    print('[AppDatabase] Database path: $path');
+    AppLogger.i('Database path: $path', tag: 'AppDatabase');
 
     final database = await openDatabase(
       path,
@@ -47,7 +48,7 @@ class AppDatabase implements DatabaseInterface {
 
   /// Called when database is opened
   Future<void> _onOpen(Database db) async {
-    print('[AppDatabase] Database opened, checking demo user...');
+    AppLogger.i('Database opened, checking demo user...', tag: 'AppDatabase');
 
     // Check if demo user exists
     final users = await db.query(
@@ -58,7 +59,7 @@ class AppDatabase implements DatabaseInterface {
     );
 
     if (users.isEmpty) {
-      print('[AppDatabase] Demo user not found, creating...');
+      AppLogger.i('Demo user not found, creating...', tag: 'AppDatabase');
       final now = getCurrentTimestamp();
 
       // Insert demo user
@@ -75,15 +76,15 @@ class AppDatabase implements DatabaseInterface {
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
 
-      print('[AppDatabase] Demo user created successfully');
+      AppLogger.i('Demo user created successfully', tag: 'AppDatabase');
     } else {
-      print('[AppDatabase] Demo user already exists');
+      AppLogger.i('Demo user already exists', tag: 'AppDatabase');
     }
   }
 
   /// Create database tables
   Future<void> _onCreate(Database db, int version) async {
-    print('[AppDatabase] Creating database tables, version: $version');
+    AppLogger.i('Creating database tables, version: $version', tag: 'AppDatabase');
     final batch = db.batch();
 
     // Users table
@@ -232,7 +233,7 @@ class AppDatabase implements DatabaseInterface {
     _createDemoUser(batch);
 
     await batch.commit(noResult: true);
-    print('[AppDatabase] Database tables created successfully');
+    AppLogger.i('Database tables created successfully', tag: 'AppDatabase');
   }
 
   /// Create database indexes
@@ -271,7 +272,7 @@ class AppDatabase implements DatabaseInterface {
 
   /// Create initial demo user
   void _createDemoUser(Batch batch) {
-    print('[AppDatabase] Creating demo user...');
+    AppLogger.i('Creating demo user...', tag: 'AppDatabase');
     final now = getCurrentTimestamp();
 
     // Insert demo user
@@ -280,7 +281,7 @@ class AppDatabase implements DatabaseInterface {
       DemoUserConstants.getUserData(now),
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
-    print('[AppDatabase] Demo user insert queued');
+    AppLogger.i('Demo user insert queued', tag: 'AppDatabase');
 
     // Insert demo user settings
     batch.insert(
@@ -450,8 +451,8 @@ class AppDatabase implements DatabaseInterface {
 
   /// Upgrade database (no migrations in development mode)
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    print('[AppDatabase] Database upgrade not supported in development mode');
-    print('[AppDatabase] Please clear app data and reinstall for schema changes');
+    AppLogger.w('Database upgrade not supported in development mode', tag: 'AppDatabase');
+    AppLogger.w('Please clear app data and reinstall for schema changes', tag: 'AppDatabase');
   }
 
   /// Close database connection

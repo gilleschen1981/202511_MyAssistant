@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/presentation/providers/task_list_notifier.dart';
 import 'package:myassistant/presentation/features/tasks/widgets/task_execution_dialog.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Quick action menu for tasks
 /// Displays a floating menu with three action buttons: Timer, Complete, Skip
@@ -239,23 +240,23 @@ class _QuickMenuContent extends ConsumerWidget {
     TaskModel task,
     WidgetRef ref,
   ) async {
-    print('[TaskQuickMenu] Skip button tapped for task: ${task.id}');
+    AppLogger.d('Skip button tapped for task: ${task.id}', tag: 'TaskQuickMenu');
 
     // Close the quick menu first
     Navigator.pop(context);
 
     // Show skip reason dialog
-    print('[TaskQuickMenu] Showing skip reason dialog');
+    AppLogger.d('Showing skip reason dialog', tag: 'TaskQuickMenu');
     final reason = await showDialog<String>(
       context: context,
       builder: (context) => _SkipReasonDialog(),
     );
 
-    print('[TaskQuickMenu] Dialog returned reason: $reason');
+    AppLogger.d('Dialog returned reason: $reason', tag: 'TaskQuickMenu');
 
     // Check if user confirmed (reason won't be null even if empty)
     if (reason != null) {
-      print('[TaskQuickMenu] Calling skipTask with reason: $reason');
+      AppLogger.d('Calling skipTask with reason: $reason', tag: 'TaskQuickMenu');
 
       try {
         await ref.read(taskListNotifierProvider.notifier).skipTask(
@@ -265,7 +266,7 @@ class _QuickMenuContent extends ConsumerWidget {
 
         // Show success message (find the scaffold context)
         if (context.mounted) {
-          print('[TaskQuickMenu] Showing success snackbar');
+          AppLogger.d('Showing success snackbar', tag: 'TaskQuickMenu');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('任务已跳过'),
@@ -275,7 +276,7 @@ class _QuickMenuContent extends ConsumerWidget {
           );
         }
       } catch (e) {
-        print('[TaskQuickMenu] Error skipping task: $e');
+        AppLogger.e('Error skipping task: $e', tag: 'TaskQuickMenu', error: e);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -287,7 +288,7 @@ class _QuickMenuContent extends ConsumerWidget {
         }
       }
     } else {
-      print('[TaskQuickMenu] Skip cancelled by user');
+      AppLogger.d('Skip cancelled by user', tag: 'TaskQuickMenu');
     }
   }
 }

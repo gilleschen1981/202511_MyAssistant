@@ -4,6 +4,7 @@ import 'package:myassistant/data/data_sources/local/database/app_database.dart';
 import 'package:myassistant/data/models/goal_model.dart';
 import 'package:myassistant/data/models/enums/priority.dart';
 import 'package:myassistant/data/models/enums/status.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Goal Data Access Object
 class GoalDao {
@@ -14,16 +15,14 @@ class GoalDao {
 
   /// Insert goal
   Future<GoalModel> insertGoal(GoalModel goal) async {
-    print('[GoalDao] insertGoal called with goal: ${goal.toJson()}');
+    AppLogger.d('insertGoal called with goal: ${goal.toJson()}', tag: 'GoalDao');
 
     final db = await _database.database;
     final goalMap = goal.toJson();
-    print('[GoalDao] Initial goalMap: $goalMap');
 
     // Map field names to database columns
     goalMap['user_id'] = goalMap.remove('userId');
     goalMap['success_criteria'] = goalMap.remove('successCriteria');
-    print('[GoalDao] After field mapping: $goalMap');
 
     // Convert DateTime to timestamp
     goalMap['created_at'] = AppDatabase.dateTimeToTimestamp(goal.createdAt);
@@ -34,16 +33,13 @@ class GoalDao {
     if (goal.deletedAt != null) {
       goalMap['deleted_at'] = AppDatabase.dateTimeToTimestamp(goal.deletedAt!);
     }
-    print('[GoalDao] After timestamp conversion: $goalMap');
 
     // Convert enums
     goalMap['priority'] = goal.priority.toDbString();
     goalMap['status'] = goal.status.toDbString();
-    print('[GoalDao] After enum conversion: $goalMap');
 
     // Convert tags list to JSON string
     goalMap['tags'] = jsonEncode(goal.tags);
-    print('[GoalDao] After tags conversion: $goalMap');
 
     // Remove planIds and isDeleted (computed) as they're not stored in database
     goalMap.remove('planIds');
@@ -51,7 +47,6 @@ class GoalDao {
     goalMap.remove('createdAt');  // Remove camelCase versions that were replaced
     goalMap.remove('updatedAt');
     goalMap.remove('deletedAt');
-    print('[GoalDao] Final goalMap for insertion: $goalMap');
 
     try {
       await db.insert(
@@ -59,9 +54,9 @@ class GoalDao {
         goalMap,
         conflictAlgorithm: ConflictAlgorithm.fail,
       );
-      print('[GoalDao] Goal inserted successfully');
+      AppLogger.i('Goal inserted successfully', tag: 'GoalDao');
     } catch (e) {
-      print('[GoalDao] Insert failed: $e');
+      AppLogger.e('Insert failed: $e', tag: 'GoalDao', error: e);
       rethrow;
     }
 
@@ -266,12 +261,11 @@ class GoalDao {
 
   /// Soft delete goal
   Future<int> deleteGoal(String goalId) async {
-    print('[GoalDao] deleteGoal called with goalId: $goalId');
+    AppLogger.d('deleteGoal called with goalId: $goalId', tag: 'GoalDao');
     final db = await _database.database;
 
     final timestamp = AppDatabase.getCurrentTimestamp();
     final statusString = GoalStatus.deleted.toDbString();
-    print('[GoalDao] Soft deleting goal, status: $statusString, timestamp: $timestamp');
 
     try {
       final result = await db.update(
@@ -284,10 +278,10 @@ class GoalDao {
         where: 'id = ?',
         whereArgs: [goalId],
       );
-      print('[GoalDao] Soft delete result: $result rows affected');
+      AppLogger.i('Soft delete result: $result rows affected', tag: 'GoalDao');
       return result;
     } catch (e) {
-      print('[GoalDao] Error deleting goal: $e');
+      AppLogger.e('Error deleting goal: $e', tag: 'GoalDao', error: e);
       rethrow;
     }
   }
@@ -313,7 +307,7 @@ class GoalDao {
     final result = await db.rawQuery('''
       SELECT AVG(completion_rate) as progress
       FROM $_tablePlans
-      WHERE goal_id = ? AND status != \'deleted\'
+      WHERE goal_id = ? AND status != 'deleted'
     ''', [goalId]);
 
     if (result.isEmpty) return 0.0;
@@ -334,7 +328,7 @@ class GoalDao {
         SUM(total_task_count) as total_tasks,
         SUM(skipped_task_count) as total_skipped_tasks
       FROM $_tablePlans
-      WHERE goal_id = ? AND status != \'deleted\'
+      WHERE goal_id = ? AND status != 'deleted'
     ''', [goalId]);
 
     if (result.isEmpty) {

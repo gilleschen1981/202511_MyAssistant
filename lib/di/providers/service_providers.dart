@@ -53,11 +53,9 @@ final taskGenerationServiceProvider = Provider<TaskGenerationService>((ref) {
 /// Task execution service provider
 final taskExecutionServiceProvider = Provider<TaskExecutionService>((ref) {
   final taskRepository = ref.watch(taskRepositoryProvider);
-  final planRepository = ref.watch(planRepositoryProvider);
   final notificationService = ref.watch(notificationServiceProvider);
   return TaskExecutionService(
     taskRepository: taskRepository,
-    planRepository: planRepository,
     notificationService: notificationService,
   );
 });

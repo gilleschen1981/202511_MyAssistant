@@ -6,6 +6,7 @@ import 'package:myassistant/domain/repositories/i_goal_repository.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
 import 'package:myassistant/data/services/task_generation_service.dart';
 import 'package:myassistant/core/errors/exceptions.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Plan statistics
 class PlanStatistics {
@@ -164,37 +165,37 @@ class PlanManagementService {
   /// Delete plan (soft delete)
   /// Deletes the plan and all associated tasks
   Future<bool> deletePlan(String planId) async {
-    print('[PlanManagementService] deletePlan called with planId: $planId');
+    AppLogger.d('deletePlan called with planId: $planId', tag: 'PlanManagementService');
 
     // 1. Get plan
-    print('[PlanManagementService] Fetching plan...');
+    AppLogger.d('Fetching plan...', tag: 'PlanManagementService');
     final plan = await _planRepository.getPlanById(planId);
     if (plan == null) {
-      print('[PlanManagementService] Plan not found');
+      AppLogger.w('Plan not found', tag: 'PlanManagementService');
       throw const NotFoundException('Plan not found');
     }
-    print('[PlanManagementService] Plan found: ${plan.name}, status: ${plan.status}, isDeleted: ${plan.isDeleted}');
+    AppLogger.d('Plan found: ${plan.name}, status: ${plan.status}, isDeleted: ${plan.isDeleted}', tag: 'PlanManagementService');
 
     // 2. Check if already deleted
     if (plan.isDeleted) {
-      print('[PlanManagementService] Plan is already deleted (status=${plan.status})');
+      AppLogger.w('Plan is already deleted (status=${plan.status})', tag: 'PlanManagementService');
       throw const BusinessException('Plan is already deleted');
     }
 
     // 3. Delete all associated tasks (soft delete)
-    print('[PlanManagementService] Deleting all associated tasks for plan...');
+    AppLogger.d('Deleting all associated tasks for plan...', tag: 'PlanManagementService');
     await _taskRepository.deletePlanTasks(planId);
-    print('[PlanManagementService] All plan tasks deleted');
+    AppLogger.d('All plan tasks deleted', tag: 'PlanManagementService');
 
     // 4. Delete the plan
-    print('[PlanManagementService] Calling repository.deletePlan...');
+    AppLogger.d('Calling repository.deletePlan...', tag: 'PlanManagementService');
     final result = await _planRepository.deletePlan(planId);
-    print('[PlanManagementService] Repository delete result: $result');
+    AppLogger.d('Repository delete result: $result', tag: 'PlanManagementService');
 
     // 5. Remove from goal
-    print('[PlanManagementService] Removing plan from goal: ${plan.goalId}');
+    AppLogger.d('Removing plan from goal: ${plan.goalId}', tag: 'PlanManagementService');
     await _goalRepository.removePlanFromGoal(plan.goalId, planId);
-    print('[PlanManagementService] Plan removed from goal successfully');
+    AppLogger.i('Plan removed from goal successfully', tag: 'PlanManagementService');
 
     return result;
   }

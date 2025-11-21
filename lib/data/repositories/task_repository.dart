@@ -5,6 +5,7 @@ import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Task repository implementation
 /// Note: Tasks cannot be deleted as per business rules
@@ -293,17 +294,17 @@ class TaskRepository implements ITaskRepository {
 
   @override
   Future<bool> deleteTask(String taskId) async {
-    print('[TaskRepository] deleteTask called with taskId: $taskId');
+    AppLogger.d('deleteTask called with taskId: $taskId', tag: 'TaskRepository');
     final result = await _taskDao.deleteTask(taskId);
-    print('[TaskRepository] Task delete result (rows affected): $result');
+    AppLogger.d('Task delete result (rows affected): $result', tag: 'TaskRepository');
     return result > 0;
   }
 
   @override
   Future<bool> deletePlanTasks(String planId) async {
-    print('[TaskRepository] deletePlanTasks called with planId: $planId');
+    AppLogger.d('deletePlanTasks called with planId: $planId', tag: 'TaskRepository');
     final tasks = await _taskDao.getPlanTasks(planId);
-    print('[TaskRepository] Found ${tasks.length} tasks to delete for plan');
+    AppLogger.d('Found ${tasks.length} tasks to delete for plan', tag: 'TaskRepository');
 
     int deletedCount = 0;
     for (final task in tasks) {
@@ -311,7 +312,7 @@ class TaskRepository implements ITaskRepository {
       if (result > 0) deletedCount++;
     }
 
-    print('[TaskRepository] Successfully deleted $deletedCount tasks');
+    AppLogger.i('Successfully deleted $deletedCount tasks', tag: 'TaskRepository');
     return deletedCount == tasks.length;
   }
 }

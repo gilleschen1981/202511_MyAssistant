@@ -5,6 +5,7 @@ import 'package:myassistant/domain/repositories/i_goal_repository.dart';
 import 'package:myassistant/domain/repositories/i_plan_repository.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
 import 'package:myassistant/core/errors/exceptions.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Goal statistics
 class GoalStatistics {
@@ -68,36 +69,29 @@ class GoalManagementService {
     List<String>? tags,
     String? successCriteria,
   }) async {
-    print('[GoalManagementService] createGoal called with:');
-    print('  - userId: $userId');
-    print('  - title: $title');
-    print('  - description: $description');
-    print('  - deadline: $deadline');
-    print('  - priority: $priority');
-    print('  - tags: $tags');
-    print('  - successCriteria: $successCriteria');
+    AppLogger.d('createGoal called: userId=$userId, title=$title', tag: 'GoalManagementService');
 
     // 1. Validate input
-    print('[GoalManagementService] Validating input...');
+    AppLogger.d('Validating input...', tag: 'GoalManagementService');
     _validateGoalInput(title, description, deadline);
-    print('[GoalManagementService] Input validation passed');
+    AppLogger.d('Input validation passed', tag: 'GoalManagementService');
 
     // 2. Check for duplicate goals
-    print('[GoalManagementService] Checking for duplicate goals...');
+    AppLogger.d('Checking for duplicate goals...', tag: 'GoalManagementService');
     final existingGoals = await _goalRepository.getUserGoals(userId);
-    print('[GoalManagementService] Found ${existingGoals.length} existing goals');
+    AppLogger.d('Found ${existingGoals.length} existing goals', tag: 'GoalManagementService');
     final isDuplicate = existingGoals.any(
       (g) => g.title.toLowerCase() == title.toLowerCase() && g.deletedAt == null,
     );
 
     if (isDuplicate) {
-      print('[GoalManagementService] Duplicate goal found with title: $title');
+      AppLogger.w('Duplicate goal found with title: $title', tag: 'GoalManagementService');
       throw const ValidationException('A goal with this title already exists');
     }
-    print('[GoalManagementService] No duplicate found');
+    AppLogger.d('No duplicate found', tag: 'GoalManagementService');
 
     // 3. Create goal
-    print('[GoalManagementService] Creating goal...');
+    AppLogger.d('Creating goal...', tag: 'GoalManagementService');
     try {
       final result = await _goalRepository.createGoal(
         userId: userId,
@@ -108,10 +102,10 @@ class GoalManagementService {
         tags: tags,
         successCriteria: successCriteria,
       );
-      print('[GoalManagementService] Goal created successfully: ${result.id}');
+      AppLogger.i('Goal created successfully: ${result.id}', tag: 'GoalManagementService');
       return result;
     } catch (e) {
-      print('[GoalManagementService] Error creating goal: $e');
+      AppLogger.e('Error creating goal: $e', tag: 'GoalManagementService', error: e);
       rethrow;
     }
   }
@@ -185,34 +179,34 @@ class GoalManagementService {
   /// Delete goal and all associated plans
   /// Note: Tasks will be cascaded deleted when plans are deleted
   Future<bool> deleteGoal(String goalId) async {
-    print('[GoalManagementService] deleteGoal called with goalId: $goalId');
+    AppLogger.d('deleteGoal called with goalId: $goalId', tag: 'GoalManagementService');
 
     // 1. Get goal
-    print('[GoalManagementService] Fetching goal...');
+    AppLogger.d('Fetching goal...', tag: 'GoalManagementService');
     final goal = await _goalRepository.getGoalById(goalId);
     if (goal == null) {
-      print('[GoalManagementService] Goal not found: $goalId');
+      AppLogger.w('Goal not found: $goalId', tag: 'GoalManagementService');
       throw const NotFoundException('Goal not found');
     }
-    print('[GoalManagementService] Goal found: ${goal.id}, status: ${goal.status}');
+    AppLogger.d('Goal found: ${goal.id}, status: ${goal.status}', tag: 'GoalManagementService');
 
     // 2. Get all plans for this goal
-    print('[GoalManagementService] Fetching plans for goal...');
+    AppLogger.d('Fetching plans for goal...', tag: 'GoalManagementService');
     final plans = await _planRepository.getGoalPlans(goalId);
-    print('[GoalManagementService] Found ${plans.length} plans');
+    AppLogger.d('Found ${plans.length} plans', tag: 'GoalManagementService');
 
     // 3. Delete all plans (tasks will be cascade deleted)
-    print('[GoalManagementService] Deleting ${plans.length} plans...');
+    AppLogger.d('Deleting ${plans.length} plans...', tag: 'GoalManagementService');
     for (final plan in plans) {
-      print('[GoalManagementService] Deleting plan: ${plan.id}');
+      AppLogger.d('Deleting plan: ${plan.id}', tag: 'GoalManagementService');
       await _planRepository.deletePlan(plan.id);
     }
-    print('[GoalManagementService] All plans deleted');
+    AppLogger.d('All plans deleted', tag: 'GoalManagementService');
 
     // 4. Delete the goal
-    print('[GoalManagementService] Deleting goal...');
+    AppLogger.d('Deleting goal...', tag: 'GoalManagementService');
     final result = await _goalRepository.deleteGoal(goalId);
-    print('[GoalManagementService] Goal deletion result: $result');
+    AppLogger.i('Goal deletion result: $result', tag: 'GoalManagementService');
     return result;
   }
 

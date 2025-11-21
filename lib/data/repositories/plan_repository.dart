@@ -5,6 +5,7 @@ import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/domain/repositories/i_plan_repository.dart';
 import 'package:myassistant/domain/repositories/i_goal_repository.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Plan repository implementation
 class PlanRepository implements IPlanRepository {
@@ -155,30 +156,30 @@ class PlanRepository implements IPlanRepository {
 
   @override
   Future<bool> deletePlan(String planId) async {
-    print('[PlanRepository] deletePlan called with planId: $planId');
+    AppLogger.d('deletePlan called with planId: $planId', tag: 'PlanRepository');
     // Note: This is a soft delete
-    print('[PlanRepository] Fetching plan from DAO...');
+    AppLogger.d('Fetching plan from DAO...', tag: 'PlanRepository');
     final plan = await _planDao.getPlanById(planId);
     if (plan == null) {
-      print('[PlanRepository] Plan not found in DAO');
+      AppLogger.w('Plan not found in DAO', tag: 'PlanRepository');
       return false;
     }
-    print('[PlanRepository] Plan found: ${plan.name}, goalId: ${plan.goalId}');
+    AppLogger.d('Plan found: ${plan.name}, goalId: ${plan.goalId}', tag: 'PlanRepository');
 
     // 1. Delete all tasks for this plan (cascade delete)
-    print('[PlanRepository] Deleting all tasks for plan...');
+    AppLogger.d('Deleting all tasks for plan...', tag: 'PlanRepository');
     await _taskRepository.deletePlanTasks(planId);
-    print('[PlanRepository] Tasks deleted');
+    AppLogger.d('Tasks deleted', tag: 'PlanRepository');
 
     // 2. Remove plan from goal
-    print('[PlanRepository] Removing plan from goal...');
+    AppLogger.d('Removing plan from goal...', tag: 'PlanRepository');
     await _goalRepository.removePlanFromGoal(plan.goalId, planId);
-    print('[PlanRepository] Plan removed from goal');
+    AppLogger.d('Plan removed from goal', tag: 'PlanRepository');
 
     // 3. Delete the plan
-    print('[PlanRepository] Calling DAO.deletePlan...');
+    AppLogger.d('Calling DAO.deletePlan...', tag: 'PlanRepository');
     final result = await _planDao.deletePlan(planId);
-    print('[PlanRepository] DAO delete result: $result');
+    AppLogger.d('DAO delete result: $result', tag: 'PlanRepository');
     return result > 0;
   }
 

@@ -6,6 +6,7 @@ import 'package:myassistant/di/providers/repository_providers.dart';
 import 'package:myassistant/di/providers/service_providers.dart';
 import 'package:myassistant/presentation/providers/auth_state_provider.dart';
 import 'package:myassistant/presentation/providers/task_list_notifier.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Plan list state
 class PlanListState {
@@ -197,23 +198,22 @@ class PlanListNotifier extends StateNotifier<PlanListState> {
 
   /// Delete plan
   Future<bool> deletePlan(String planId) async {
-    print('[PlanStateProvider] deletePlan called with planId: $planId');
+    AppLogger.d('deletePlan called with planId: $planId', tag: 'PlanStateProvider');
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      print('[PlanStateProvider] Calling _planService.deletePlan...');
+      AppLogger.d('Calling _planService.deletePlan...', tag: 'PlanStateProvider');
       final result = await _planService.deletePlan(planId);
-      print('[PlanStateProvider] _planService.deletePlan result: $result');
+      AppLogger.d('_planService.deletePlan result: $result', tag: 'PlanStateProvider');
 
       // Reload plans
-      print('[PlanStateProvider] Reloading plans...');
+      AppLogger.d('Reloading plans...', tag: 'PlanStateProvider');
       await loadPlans();
-      print('[PlanStateProvider] Plans reloaded successfully');
+      AppLogger.d('Plans reloaded successfully', tag: 'PlanStateProvider');
 
       return result;
     } catch (e, stackTrace) {
-      print('[PlanStateProvider] Error deleting plan: $e');
-      print('[PlanStateProvider] Stack trace: $stackTrace');
+      AppLogger.e('Error deleting plan: $e', tag: 'PlanStateProvider', error: e, stackTrace: stackTrace);
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),

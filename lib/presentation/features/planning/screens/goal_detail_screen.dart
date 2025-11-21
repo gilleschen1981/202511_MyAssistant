@@ -8,6 +8,7 @@ import 'package:myassistant/presentation/features/planning/widgets/plan_card.dar
 import 'package:myassistant/presentation/features/planning/widgets/edit_goal_dialog.dart';
 import 'package:myassistant/presentation/features/planning/widgets/create_plan_dialog.dart';
 import 'package:myassistant/presentation/features/planning/widgets/edit_plan_dialog.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Goal detail screen - displays goal information and all its associated plans
 class GoalDetailScreen extends ConsumerStatefulWidget {
@@ -367,7 +368,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
   }
 
   Future<void> _confirmDeletePlan(PlanModel plan) async {
-    print('[GoalDetailScreen] _confirmDeletePlan called for plan: ${plan.name} (${plan.id})');
+    AppLogger.d('_confirmDeletePlan called for plan: ${plan.name} (${plan.id})', tag: 'GoalDetailScreen');
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -389,27 +390,27 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
       ),
     );
 
-    print('[GoalDetailScreen] User confirmation: $confirmed');
+    AppLogger.d('User confirmation: $confirmed', tag: 'GoalDetailScreen');
     if (confirmed == true) {
-      print('[GoalDetailScreen] Calling deletePlan...');
+      AppLogger.d('Calling deletePlan...', tag: 'GoalDetailScreen');
       final success = await ref.read(planListProvider.notifier).deletePlan(plan.id);
-      print('[GoalDetailScreen] Delete success: $success');
+      AppLogger.d('Delete success: $success', tag: 'GoalDetailScreen');
 
       if (success && mounted) {
-        print('[GoalDetailScreen] Showing success message and reloading plans');
+        AppLogger.d('Showing success message and reloading plans', tag: 'GoalDetailScreen');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('计划"${plan.name}"已删除')),
         );
         // Reload plans
         ref.read(planListProvider.notifier).loadGoalPlans(_currentGoal.id);
       } else if (mounted) {
-        print('[GoalDetailScreen] Showing failure message');
+        AppLogger.d('Showing failure message', tag: 'GoalDetailScreen');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('删除计划失败,请重试')),
         );
       }
     } else {
-      print('[GoalDetailScreen] User cancelled deletion');
+      AppLogger.d('User cancelled deletion', tag: 'GoalDetailScreen');
     }
   }
 

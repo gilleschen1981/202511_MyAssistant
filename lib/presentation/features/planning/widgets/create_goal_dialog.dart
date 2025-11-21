@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myassistant/data/models/enums/priority.dart';
 import 'package:myassistant/presentation/providers/goal_state_provider.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Dialog for creating a new goal
 class CreateGoalDialog extends ConsumerStatefulWidget {
@@ -50,13 +51,13 @@ class _CreateGoalDialogState extends ConsumerState<CreateGoalDialog> {
   }
 
   Future<void> _createGoal() async {
-    print('[CreateGoalDialog] _createGoal called');
+    AppLogger.d('_createGoal called', tag: 'CreateGoalDialog');
 
     if (!_formKey.currentState!.validate()) {
-      print('[CreateGoalDialog] Form validation failed');
+      AppLogger.d('Form validation failed', tag: 'CreateGoalDialog');
       return;
     }
-    print('[CreateGoalDialog] Form validation passed');
+    AppLogger.d('Form validation passed', tag: 'CreateGoalDialog');
 
     setState(() {
       _isLoading = true;
@@ -65,27 +66,21 @@ class _CreateGoalDialogState extends ConsumerState<CreateGoalDialog> {
     try {
       // Parse tags
       final tagsText = _tagsController.text.trim();
-      print('[CreateGoalDialog] Tags text: "$tagsText"');
+      AppLogger.d('Tags text: "$tagsText"', tag: 'CreateGoalDialog');
       final tags = tagsText.isNotEmpty
           ? tagsText.split(',').map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList()
           : <String>[];
-      print('[CreateGoalDialog] Parsed tags: $tags');
+      AppLogger.d('Parsed tags: $tags', tag: 'CreateGoalDialog');
 
       // Prepare data
       final title = _titleController.text.trim();
       final description = _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim();
       final successCriteria = _successCriteriaController.text.trim().isEmpty ? null : _successCriteriaController.text.trim();
 
-      print('[CreateGoalDialog] Creating goal with:');
-      print('  - title: $title');
-      print('  - description: $description');
-      print('  - deadline: $_selectedDeadline');
-      print('  - priority: $_selectedPriority');
-      print('  - tags: $tags');
-      print('  - successCriteria: $successCriteria');
+      AppLogger.d('Creating goal with: title=$title, description=$description, deadline=$_selectedDeadline, priority=$_selectedPriority, tags=$tags, successCriteria=$successCriteria', tag: 'CreateGoalDialog');
 
       // Create goal
-      print('[CreateGoalDialog] Calling createGoal...');
+      AppLogger.d('Calling createGoal...', tag: 'CreateGoalDialog');
       final result = await ref.read(goalListProvider.notifier).createGoal(
         title: title,
         description: description,
@@ -95,7 +90,7 @@ class _CreateGoalDialogState extends ConsumerState<CreateGoalDialog> {
         successCriteria: successCriteria,
       );
 
-      print('[CreateGoalDialog] createGoal returned: ${result != null ? result.id : "null"}');
+      AppLogger.d('createGoal returned: ${result != null ? result.id : "null"}', tag: 'CreateGoalDialog');
 
       if (!mounted) return;
 
@@ -104,7 +99,7 @@ class _CreateGoalDialogState extends ConsumerState<CreateGoalDialog> {
       });
 
       if (result != null) {
-        print('[CreateGoalDialog] Goal created successfully, closing dialog');
+        AppLogger.i('Goal created successfully, closing dialog', tag: 'CreateGoalDialog');
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -113,7 +108,7 @@ class _CreateGoalDialogState extends ConsumerState<CreateGoalDialog> {
           ),
         );
       } else {
-        print('[CreateGoalDialog] Goal creation returned null');
+        AppLogger.w('Goal creation returned null', tag: 'CreateGoalDialog');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('创建目标失败，请重试'),
@@ -122,8 +117,7 @@ class _CreateGoalDialogState extends ConsumerState<CreateGoalDialog> {
         );
       }
     } catch (e, stack) {
-      print('[CreateGoalDialog] Error caught: $e');
-      print('[CreateGoalDialog] Stack trace: $stack');
+      AppLogger.e('Error caught', tag: 'CreateGoalDialog', error: e, stackTrace: stack);
 
       if (!mounted) return;
 
