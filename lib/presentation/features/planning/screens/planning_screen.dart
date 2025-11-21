@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:myassistant/data/models/goal_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/presentation/providers/goal_state_provider.dart';
 import 'package:myassistant/presentation/features/planning/widgets/goal_card.dart';
 import 'package:myassistant/presentation/features/planning/widgets/create_goal_dialog.dart';
-import 'package:myassistant/presentation/features/planning/screens/goal_detail_screen.dart';
 
 /// Planning screen - displays all goals and their associated plans
 class PlanningScreen extends ConsumerStatefulWidget {
@@ -106,12 +106,7 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
             goal: goal,
             onTap: () {
               // Navigate to goal detail page to show plans
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => GoalDetailScreen(goal: goal),
-                ),
-              );
+              context.push('/goal/${goal.id}');
             },
             onStatusChange: filterStatus != GoalStatus.completed
                 ? (newStatus) => _updateGoalStatus(goal, newStatus)

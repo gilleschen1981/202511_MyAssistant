@@ -4,13 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myassistant/presentation/features/splash/screens/splash_screen.dart';
 import 'package:myassistant/presentation/features/auth/screens/login_screen.dart';
 import 'package:myassistant/presentation/features/home/screens/home_screen.dart';
+import 'package:myassistant/presentation/features/planning/screens/goal_detail_screen.dart';
 import 'package:myassistant/presentation/providers/auth_state_provider.dart';
+import 'package:myassistant/di/providers/repository_providers.dart';
 
 /// App route paths
 class AppRoutes {
   static const splash = '/splash';
   static const login = '/login';
   static const home = '/';
+  static const goalDetail = '/goal/:goalId';
+
+  /// Helper methods to build route paths with parameters
+  static String goalDetailPath(String goalId) => '/goal/$goalId';
 }
 
 /// GoRouter provider
@@ -61,6 +67,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.home,
         builder: (context, state) => const HomeScreen(),
       ),
+      // Goal detail route
+      GoRoute(
+        path: AppRoutes.goalDetail,
+        builder: (context, state) {
+          final goalId = state.pathParameters['goalId']!;
+          return GoalDetailScreenWrapper(goalId: goalId);
+        },
+      ),
     ],
   );
 });
@@ -74,6 +88,60 @@ class RouterNotifier extends ChangeNotifier {
       authStateProvider.select((value) => value.user),
       (previous, next) {
         notifyListeners();
+      },
+    );
+  }
+}
+
+/// Wrapper widget to load goal data by ID and display goal detail screen
+class GoalDetailScreenWrapper extends ConsumerStatefulWidget {
+  final String goalId;
+
+  const GoalDetailScreenWrapper({super.key, required this.goalId});
+
+  @override
+  ConsumerState<GoalDetailScreenWrapper> createState() => _GoalDetailScreenWrapperState();
+}
+
+class _GoalDetailScreenWrapperState extends ConsumerState<GoalDetailScreenWrapper> {
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder(
+      future: ref.read(goalRepositoryProvider).getGoalById(widget.goalId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('目标详情')),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('目标详情')),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64),
+                  const SizedBox(height: 16),
+                  Text(
+                    snapshot.hasError ? '加载失败' : '目标不存在',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton.icon(
+                    onPressed: () => context.pop(),
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('返回'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return GoalDetailScreen(goal: snapshot.data!);
       },
     );
   }

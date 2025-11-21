@@ -24,12 +24,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     const ProfileScreen(),
   ];
 
-  final List<String> _titles = [
-    '任务',
-    '计划',
-    '回顾',
-    '设置',
-  ];
+  final List<String> _titles = ['任务', '目标', '回顾', '设置'];
 
   @override
   Widget build(BuildContext context) {
@@ -67,10 +62,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
         ],
       ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
@@ -101,23 +93,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
-      floatingActionButton: _buildFloatingActionButton(),
     );
-  }
-
-  Widget? _buildFloatingActionButton() {
-    // Show FAB only on Tasks screen
-    if (_currentIndex == 0) {
-      return FloatingActionButton(
-        onPressed: () {
-          // Quick add task
-          _showQuickAddTask();
-        },
-        tooltip: '快速添加任务',
-        child: const Icon(Icons.add),
-      );
-    }
-    return null;
   }
 
   void _showAddGoalDialog() async {
@@ -159,94 +135,5 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
       },
     );
-  }
-
-  void _showQuickAddTask() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: const _QuickAddTaskSheet(),
-        );
-      },
-    );
-  }
-}
-
-/// Quick add task bottom sheet
-class _QuickAddTaskSheet extends ConsumerStatefulWidget {
-  const _QuickAddTaskSheet();
-
-  @override
-  ConsumerState<_QuickAddTaskSheet> createState() => _QuickAddTaskSheetState();
-}
-
-class _QuickAddTaskSheetState extends ConsumerState<_QuickAddTaskSheet> {
-  final _taskNameController = TextEditingController();
-
-  @override
-  void dispose() {
-    _taskNameController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            '快速添加任务',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _taskNameController,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: '任务名称',
-              hintText: '输入任务名称...',
-            ),
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _addTask(),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _addTask,
-                child: const Text('添加'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _addTask() {
-    final taskName = _taskNameController.text.trim();
-    if (taskName.isEmpty) return;
-
-    // TODO: Implement quick add task
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('任务 "$taskName" 将被添加'),
-      ),
-    );
-    Navigator.pop(context);
   }
 }

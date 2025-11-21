@@ -8,7 +8,6 @@ import 'package:myassistant/presentation/features/planning/widgets/plan_card.dar
 import 'package:myassistant/presentation/features/planning/widgets/edit_goal_dialog.dart';
 import 'package:myassistant/presentation/features/planning/widgets/create_plan_dialog.dart';
 import 'package:myassistant/presentation/features/planning/widgets/edit_plan_dialog.dart';
-import 'package:myassistant/presentation/features/planning/screens/plan_detail_screen.dart';
 
 /// Goal detail screen - displays goal information and all its associated plans
 class GoalDetailScreen extends ConsumerStatefulWidget {
@@ -199,7 +198,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
                   final plan = activePlans[index];
                   return PlanCard(
                     plan: plan,
-                    onTap: () => _showPlanDetails(plan),
+                    onTap: () => _showEditPlanDialog(plan),
                     onEdit: () => _showEditPlanDialog(plan),
                     onDelete: () => _confirmDeletePlan(plan),
                   );
@@ -242,7 +241,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
                   final plan = completedPlans[index];
                   return PlanCard(
                     plan: plan,
-                    onTap: () => _showPlanDetails(plan),
+                    onTap: () => _showEditPlanDialog(plan),
                   );
                 },
                 childCount: completedPlans.length,
@@ -353,14 +352,6 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
     if (plan != null) {
       ref.read(planListProvider.notifier).loadGoalPlans(_currentGoal.id);
     }
-  }
-
-  void _showPlanDetails(PlanModel plan) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => PlanDetailScreen(plan: plan),
-      ),
-    );
   }
 
   Future<void> _showEditPlanDialog(PlanModel plan) async {

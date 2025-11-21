@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/enums/task_type.dart';
-import 'package:myassistant/presentation/providers/task_state_provider.dart';
+import 'package:myassistant/presentation/providers/task_list_notifier.dart';
 
 /// Base task execution dialog
 abstract class TaskExecutionDialog extends ConsumerStatefulWidget {
@@ -117,7 +117,7 @@ class _SimpleTaskDialogState extends ConsumerState<SimpleTaskDialog> {
   Future<void> _completeTask() async {
     setState(() => _isCompleting = true);
 
-    await ref.read(taskListProvider.notifier).completeTask(
+    await ref.read(taskListNotifierProvider.notifier).completeTask(
           task: widget.task,
           executionNote: _noteController.text.trim().isEmpty
               ? null
@@ -329,7 +329,7 @@ class _TimerTaskDialogState extends ConsumerState<TimerTaskDialog> {
             _remainingSeconds) ~/
         60;
 
-    await ref.read(taskListProvider.notifier).completeTask(
+    await ref.read(taskListNotifierProvider.notifier).completeTask(
           task: widget.task,
           actualDurationMinutes: actualMinutes,
           executionNote: _noteController.text.trim().isEmpty
@@ -491,7 +491,7 @@ class _CounterTaskDialogState extends ConsumerState<CounterTaskDialog> {
     setState(() => _isCompleting = true);
 
     // Complete with updated count
-    await ref.read(taskListProvider.notifier).completeTask(
+    await ref.read(taskListNotifierProvider.notifier).completeTask(
           task: widget.task.copyWith(currentCount: _currentCount),
           executionNote: _noteController.text.trim().isEmpty
               ? null
@@ -608,7 +608,7 @@ class _EvaluationTaskDialogState extends ConsumerState<EvaluationTaskDialog> {
   Future<void> _completeTask() async {
     setState(() => _isCompleting = true);
 
-    await ref.read(taskListProvider.notifier).completeTask(
+    await ref.read(taskListNotifierProvider.notifier).completeTask(
           task: widget.task,
           evaluationResult: _selectedOption,
           executionNote: _noteController.text.trim().isEmpty
@@ -868,7 +868,7 @@ class _TimerCounterTaskDialogState
             _remainingSeconds) ~/
         60;
 
-    await ref.read(taskListProvider.notifier).completeTask(
+    await ref.read(taskListNotifierProvider.notifier).completeTask(
           task: widget.task.copyWith(currentCount: _currentCount),
           actualDurationMinutes: actualMinutes,
           executionNote: _noteController.text.trim().isEmpty
@@ -1054,7 +1054,7 @@ class _CounterEvaluationTaskDialogState
   Future<void> _completeTask() async {
     setState(() => _isCompleting = true);
 
-    await ref.read(taskListProvider.notifier).completeTask(
+    await ref.read(taskListNotifierProvider.notifier).completeTask(
           task: widget.task.copyWith(currentCount: _currentCount),
           evaluationResult: _selectedOption,
           executionNote: _noteController.text.trim().isEmpty

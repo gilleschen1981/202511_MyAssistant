@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
-import 'package:myassistant/presentation/providers/task_state_provider.dart';
+import 'package:myassistant/presentation/providers/task_list_notifier.dart';
 import 'package:myassistant/presentation/features/tasks/widgets/compact_task_card.dart';
 import 'package:myassistant/presentation/features/tasks/widgets/task_quick_menu.dart';
 import 'package:myassistant/presentation/features/tasks/utils/task_grouping.dart';
@@ -31,15 +31,25 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
   @override
   void initState() {
     super.initState();
-    // Load tasks on init
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(taskListProvider.notifier).loadTasks();
-    });
+    // Tasks auto-load with AsyncNotifier, no manual load needed
   }
 
   @override
   Widget build(BuildContext context) {
-    final taskState = ref.watch(taskListProvider);
+    final taskListAsync = ref.watch(taskListNotifierProvider);
+
+    // Handle loading and error states
+    if (taskListAsync.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (taskListAsync.hasError) {
+      return Center(
+        child: Text('Error: ${taskListAsync.error}'),
+      );
+    }
+
+    final taskState = taskListAsync.value!;
     // Filter out deleted tasks
     final allTasks = taskState.todayTasks
         .where((task) => task.status != TaskStatus.deleted)
@@ -54,7 +64,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
 
     return RefreshIndicator(
       onRefresh: () async {
-        await ref.read(taskListProvider.notifier).refreshTasks();
+        await ref.read(taskListNotifierProvider.notifier).refreshTasks();
       },
       child: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),

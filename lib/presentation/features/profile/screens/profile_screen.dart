@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myassistant/presentation/providers/auth_state_provider.dart';
 import 'package:myassistant/presentation/providers/goal_state_provider.dart';
 import 'package:myassistant/presentation/providers/plan_state_provider.dart';
-import 'package:myassistant/presentation/providers/task_state_provider.dart';
+import 'package:myassistant/presentation/providers/task_list_notifier.dart';
 
 /// Profile screen - displays user profile and settings
 class ProfileScreen extends ConsumerWidget {
@@ -18,7 +18,8 @@ class ProfileScreen extends ConsumerWidget {
     // Get statistics
     final goalState = ref.watch(goalListProvider);
     final planState = ref.watch(planListProvider);
-    final taskState = ref.watch(taskListProvider);
+    final taskListAsync = ref.watch(taskListNotifierProvider);
+    final taskState = taskListAsync.value;
 
     if (user == null) {
       return const Center(
@@ -138,7 +139,7 @@ class ProfileScreen extends ConsumerWidget {
                     Expanded(
                       child: _StatCard(
                         title: 'Today\'s Tasks',
-                        value: taskState.todayTasks.length.toString(),
+                        value: (taskState?.todayTasks.length ?? 0).toString(),
                         icon: Icons.task_alt,
                         color: Colors.orange,
                       ),
@@ -147,7 +148,7 @@ class ProfileScreen extends ConsumerWidget {
                     Expanded(
                       child: _StatCard(
                         title: 'Completed',
-                        value: taskState.completedTasks.length.toString(),
+                        value: (taskState?.completedTasks.length ?? 0).toString(),
                         icon: Icons.check_circle,
                         color: Colors.purple,
                       ),
