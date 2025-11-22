@@ -455,15 +455,6 @@ class _PlanReviewListScreenState extends ConsumerState<PlanReviewListScreen> {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 32),
-            FilledButton.icon(
-              onPressed: () {
-                // Navigate to planning screen
-                context.go('/planning');
-              },
-              icon: const Icon(Icons.add),
-              label: const Text('创建计划'),
-            ),
           ],
         ),
       ),
