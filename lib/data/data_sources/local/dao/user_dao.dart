@@ -288,8 +288,8 @@ class UserDao {
       displayName: map['display_name'] as String?,
       avatarUrl: map['avatar_url'] as String?,
       status: UserStatus.fromString(map['status'] as String),
-      createdAt: AppDatabase.timestampToDateTime(map['created_at'] as int),
-      updatedAt: AppDatabase.timestampToDateTime(map['updated_at'] as int),
+      createdAt: AppDatabase.timestampToDateTime(_toInt(map['created_at'])),
+      updatedAt: AppDatabase.timestampToDateTime(_toInt(map['updated_at'])),
     );
   }
 
@@ -305,12 +305,36 @@ class UserDao {
       enableVibration: map['enable_vibration'] == 1,
       autoSync: map['auto_sync'] == 1,
       lastSyncTime: map['last_sync_time'] != null
-          ? AppDatabase.timestampToDateTime(map['last_sync_time'] as int)
+          ? AppDatabase.timestampToDateTime(_toInt(map['last_sync_time']))
           : null,
       autoRefreshTasks: map['auto_refresh_tasks'] == 1,
-      defaultTimerMinutes: map['default_timer_minutes'] as int,
+      defaultTimerMinutes: _toInt(map['default_timer_minutes']),
       enableAnalytics: (map['enable_analytics'] ?? 0) == 1,
       enableCrashReporting: (map['enable_crash_reporting'] ?? 1) == 1,
     );
+  }
+
+  /// Helper method to safely convert dynamic value to int
+  /// Handles int, String (numeric), and ISO date strings from SQLite
+  int _toInt(dynamic value) {
+    if (value is int) {
+      return value;
+    } else if (value is String) {
+      // Check if it's an ISO date string (contains 'T' or looks like a date)
+      if (value.contains('T') || value.contains('-')) {
+        try {
+          // Parse as ISO date and convert to Unix timestamp
+          final dateTime = DateTime.parse(value);
+          return dateTime.millisecondsSinceEpoch ~/ 1000;
+        } catch (e) {
+          // If parsing as date fails, try parsing as int
+          return int.parse(value);
+        }
+      }
+      // Regular numeric string
+      return int.parse(value);
+    } else {
+      throw ArgumentError('Cannot convert $value to int');
+    }
   }
 }

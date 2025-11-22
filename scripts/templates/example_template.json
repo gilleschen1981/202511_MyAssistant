@@ -1,0 +1,71 @@
+{
+  "template_name": "健康生活计划",
+  "description": "包含运动、饮食和睡眠管理的综合健康计划",
+  "version": "1.0",
+  "exported_at": "2025-01-22T14:30:00Z",
+  "author": "Template Creator",
+  "goals": [
+    {
+      "title": "健康管理",
+      "description": "通过规律运动、健康饮食和充足睡眠，提升整体健康水平",
+      "priority": "high",
+      "tags": ["健康", "运动", "饮食"],
+      "status": "active",
+      "deadline": null,
+      "successCriteria": "持续3个月，体重下降5kg，体脂率降低3%"
+    }
+  ],
+  "plans": [
+    {
+      "goal_index": 0,
+      "name": "晨跑计划",
+      "description": "每周5天，每次30分钟的晨跑",
+      "startDate": "2025-01-01T00:00:00Z",
+      "endDate": "2025-03-31T23:59:59Z",
+      "status": "active",
+      "repeatRule": {
+        "type": "weekly",
+        "customDays": 31
+      },
+      "taskConfig": {
+        "durationMinutes": 30,
+        "repeatCount": null,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_index": 0,
+      "name": "健康饮食",
+      "description": "每日三餐按时吃，减少高油高糖食物",
+      "startDate": "2025-01-01T00:00:00Z",
+      "endDate": "2025-03-31T23:59:59Z",
+      "status": "active",
+      "repeatRule": {
+        "type": "daily",
+        "customDays": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": null,
+        "evaluationOptions": ["很好", "一般", "需改进"]
+      }
+    },
+    {
+      "goal_index": 0,
+      "name": "睡眠管理",
+      "description": "每天23:00前入睡，保证8小时睡眠",
+      "startDate": "2025-01-01T00:00:00Z",
+      "endDate": "2025-03-31T23:59:59Z",
+      "status": "active",
+      "repeatRule": {
+        "type": "daily",
+        "customDays": null
+      },
+      "taskConfig": {
+        "durationMinutes": 480,
+        "repeatCount": null,
+        "evaluationOptions": null
+      }
+    }
+  ]
+}

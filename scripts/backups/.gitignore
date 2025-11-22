@@ -1,0 +1,6 @@
+# Ignore all backup files
+*.db
+*.json
+
+# But track this .gitignore file
+!.gitignore

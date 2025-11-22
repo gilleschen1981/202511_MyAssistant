@@ -34,6 +34,22 @@ my_assistant/
 │   ├── images/                 # 图片资源
 │   ├── fonts/                  # 字体文件
 │   └── icons/                  # 图标资源
+├── scripts/                    # 开发工具脚本
+│   ├── export_templates.sh     # Goal/Plan模板导出脚本
+│   ├── import_templates.sh     # Goal/Plan模板导入脚本
+│   ├── export_db.sh           # 数据库导出脚本
+│   ├── reset_db.sh            # 数据库重置脚本
+│   ├── README.md              # 脚本使用说明
+│   └── templates/             # 模板文件目录
+│       ├── README.md          # 模板格式说明
+│       ├── example_template.json  # 示例模板
+│       └── *.json             # 导出的模板文件
+├── document/                   # 项目文档
+│   ├── TechnicalDesign/        # 技术设计文档
+│   │   ├── ProjectStructure.md # 项目结构说明（本文档）
+│   │   ├── DatabaseSchema.md   # 数据库设计
+│   │   └── Architecture.md     # 架构设计
+│   └── UserGuide/              # 用户指南
 ├── pubspec.yaml               # 项目配置和依赖
 └── README.md                  # 项目说明文档
 ```
@@ -510,6 +526,232 @@ test/
     └── scenarios/
 ```
 
+## 9. 开发工具脚本（scripts/）
+
+### 9.1 脚本概述
+
+`scripts/` 目录包含用于开发和测试的命令行工具脚本，主要用于：
+- Goal 和 Plan 模板的导入导出
+- 数据库管理和调试
+- 开发环境的快速设置
+
+### 9.2 模板导入导出工具
+
+#### export_templates.sh
+**功能**：从 Android 设备导出 Goals 和 Plans 为 JSON 模板文件
+
+**使用场景**：
+- 创建可复用的 Goal/Plan 模板库
+- 备份重要的计划数据
+- 分享计划模板给其他用户
+- 生成测试数据
+
+**使用方法**：
+```bash
+cd scripts
+
+# 交互式导出（选择要导出的 goal）
+./export_templates.sh
+
+# 导出所有 goals 和 plans
+./export_templates.sh all
+
+# 导出指定 goal（需要先获取 goal ID）
+./export_templates.sh <goal_id> <output_name>
+```
+
+**输出**：
+- 生成格式化的 JSON 文件到 `templates/` 目录
+- 自动清理敏感信息（ID、用户ID、时间戳等）
+- 文件命名：`<模板名称>_<时间戳>.json`
+
+#### import_templates.sh
+**功能**：将 JSON 模板文件导入到 Android 设备
+
+**使用场景**：
+- 快速创建预定义的 Goal 和 Plan
+- 导入测试数据
+- 使用社区共享的模板
+- 在新设备上恢复计划
+
+**使用方法**：
+```bash
+# 导入指定模板
+./import_templates.sh templates/example_template.json
+
+# 导入自定义模板
+./import_templates.sh templates/my_fitness_plan.json
+```
+
+**特性**：
+- 自动生成新的 UUID，避免 ID 冲突
+- 关联到当前登录用户
+- 导入前验证 JSON 格式
+- 支持预览模板内容
+- 安全的数据库事务处理
+
+### 9.3 数据库管理工具
+
+#### export_db.sh
+**功能**：从 Android 设备导出 SQLite 数据库到本地
+
+**使用场景**：
+- 数据库结构查看和分析
+- 数据调试和验证
+- 使用 DB Browser 等工具查看数据
+
+**使用方法**：
+```bash
+./export_db.sh
+```
+
+**输出**：
+- 数据库文件：`debug_db/myassistant.db`
+- 自动显示数据库大小和表列表
+- 可选：使用 DB Browser for SQLite 打开
+
+#### reset_db.sh
+**功能**：重置 Android 设备上的数据库（开发用）
+
+**使用场景**：
+- 清除测试数据
+- 重新开始测试流程
+- 修复数据库错误
+
+**警告**：此操作会删除所有数据，仅用于开发环境
+
+### 9.4 模板格式说明
+
+所有模板文件遵循统一的 JSON 格式，详见 `templates/README.md`
+
+**基本结构**：
+```json
+{
+  "template_name": "模板名称",
+  "description": "模板描述",
+  "version": "1.0",
+  "exported_at": "ISO 8601 时间戳",
+  "goals": [
+    {
+      "title": "目标标题",
+      "description": "目标描述",
+      "priority": "high|medium|low",
+      "tags": ["标签1", "标签2"],
+      "status": "active",
+      "deadline": "ISO 8601 时间戳或null",
+      "successCriteria": "成功标准"
+    }
+  ],
+  "plans": [
+    {
+      "goal_index": 0,
+      "name": "计划名称",
+      "description": "计划描述",
+      "startDate": "ISO 8601 时间戳",
+      "endDate": "ISO 8601 时间戳",
+      "status": "active",
+      "repeatRule": {
+        "type": "oneTime|daily|weekly|monthly",
+        "customDays": "位掩码或null"
+      },
+      "taskConfig": {
+        "durationMinutes": "数字或null",
+        "repeatCount": "数字或null",
+        "evaluationOptions": "数组或null"
+      }
+    }
+  ]
+}
+```
+
+### 9.5 脚本依赖
+
+**必需工具**：
+- `adb` (Android Debug Bridge) - Android SDK Platform-Tools
+- `sqlite3` - SQLite 命令行工具
+- `jq` - JSON 处理工具
+
+**macOS 安装**：
+```bash
+# Android SDK Platform-Tools
+brew install android-platform-tools
+
+# jq
+brew install jq
+
+# sqlite3（通常已预装）
+which sqlite3
+```
+
+### 9.6 真机使用说明
+
+#### Android 模拟器
+直接运行脚本即可，无需额外配置。
+
+#### 真实 Android 手机
+
+**步骤**：
+1. 开启开发者选项
+   - 设置 → 关于手机 → 连续点击"版本号" 7 次
+2. 开启 USB 调试
+   - 设置 → 开发者选项 → USB 调试 → 开启
+3. USB 连接手机到电脑
+   - 手机上允许 USB 调试授权
+4. 验证连接：`adb devices`
+5. 运行脚本（与模拟器相同）
+
+**真机无 USB 方案（未来可扩展）**：
+- 应用内开发者菜单（特殊手势触发）
+- Assets 打包预置模板
+- 云端模板库（URL 下载）
+- 文件选择器（从 Downloads 读取）
+
+### 9.7 示例模板
+
+项目提供了示例模板：`templates/example_template.json`
+
+**内容**：健康生活计划
+- 1 个 Goal：健康管理
+- 3 个 Plans：
+  - 晨跑计划（每周5天，30分钟计时）
+  - 健康饮食（每日，质量评估）
+  - 睡眠管理（每日，8小时计时）
+
+**用途**：
+- 快速测试导入导出功能
+- 作为模板格式参考
+- 创建自定义模板的起点
+
+### 9.8 最佳实践
+
+1. **开发流程**：
+   - 在应用中创建 Goal 和 Plans
+   - 使用 `export_templates.sh` 导出为模板
+   - 编辑和优化模板 JSON
+   - 使用 `import_templates.sh` 测试导入
+
+2. **模板管理**：
+   - 为模板使用描述性名称
+   - 在 `templates/` 目录组织模板
+   - 使用版本控制跟踪模板变更
+
+3. **调试技巧**：
+   - 使用 `export_db.sh` 验证数据
+   - 使用 `jq` 验证 JSON 格式
+   - 检查导入前后的数据库状态
+
+## 10. 文档结构（document/）
+
+### 10.1 技术设计文档（TechnicalDesign/）
+
+- **ProjectStructure.md**（本文档）：项目结构和代码组织
+- **DatabaseSchema.md**：数据库设计和表结构
+- **Architecture.md**：架构设计和设计模式
+
+### 10.2 用户指南（UserGuide/）
+
+用户使用手册和帮助文档（待补充）
+
 ## 总结
 
 本项目结构设计遵循以下原则：
@@ -517,3 +759,5 @@ test/
 2. **模块化**：按功能模块组织代码，高内聚低耦合
 3. **可测试性**：通过依赖注入实现可测试性
 4. **可扩展性**：预留远程数据源，便于添加云同步
+5. **开发友好**：提供丰富的开发工具脚本，提升开发效率
+6. **文档完善**：技术文档和脚本说明齐全，易于维护

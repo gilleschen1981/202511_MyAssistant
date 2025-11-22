@@ -5,6 +5,12 @@ PACKAGE_NAME="com.example.myassistant"
 DB_NAME="myassistant.db"
 OUTPUT_DIR="./debug_db"
 OUTPUT_PATH="${OUTPUT_DIR}/${DB_NAME}"
+ADB="${ANDROID_HOME:-$HOME/Library/Android/sdk}/platform-tools/adb"
+
+# Fallback if adb is in PATH
+if ! [ -x "$ADB" ]; then
+    ADB="adb"
+fi
 
 echo "🔍 Exporting database from $PACKAGE_NAME..."
 
@@ -12,7 +18,7 @@ echo "🔍 Exporting database from $PACKAGE_NAME..."
 mkdir -p "$OUTPUT_DIR"
 
 # Export database using run-as (works for debuggable apps)
-adb exec-out run-as $PACKAGE_NAME cat databases/$DB_NAME > "$OUTPUT_PATH"
+$ADB exec-out run-as $PACKAGE_NAME cat databases/$DB_NAME > "$OUTPUT_PATH"
 
 # Check if export was successful
 if [ -f "$OUTPUT_PATH" ] && [ -s "$OUTPUT_PATH" ]; then

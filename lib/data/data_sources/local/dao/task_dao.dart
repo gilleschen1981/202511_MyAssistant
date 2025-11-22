@@ -526,7 +526,7 @@ class TaskDao {
         'metadata': map['metadata'] != null
             ? jsonDecode(map['metadata'] as String)
             : null,
-        'createdAt': AppDatabase.timestampToDateTime(map['created_at'] as int),
+        'createdAt': AppDatabase.timestampToDateTime(_toInt(map['created_at'])),
       };
     }).toList();
   }
@@ -568,23 +568,47 @@ class TaskDao {
       name: map['name'] as String,
       description: map['description'] as String?,
       config: taskConfig,
-      windowStartTime: AppDatabase.timestampToDateTime(map['window_start_time'] as int),
-      windowEndTime: AppDatabase.timestampToDateTime(map['window_end_time'] as int),
+      windowStartTime: AppDatabase.timestampToDateTime(_toInt(map['window_start_time'])),
+      windowEndTime: AppDatabase.timestampToDateTime(_toInt(map['window_end_time'])),
       status: TaskStatus.fromString(map['status'] as String),
-      currentCount: map['current_count'] as int? ?? 0,
+      currentCount: map['current_count'] != null ? _toInt(map['current_count']) : 0,
       completedAt: map['completed_at'] != null
-          ? AppDatabase.timestampToDateTime(map['completed_at'] as int)
+          ? AppDatabase.timestampToDateTime(_toInt(map['completed_at']))
           : null,
       skippedAt: map['skipped_at'] != null
-          ? AppDatabase.timestampToDateTime(map['skipped_at'] as int)
+          ? AppDatabase.timestampToDateTime(_toInt(map['skipped_at']))
           : null,
-      actualDurationMinutes: map['actual_duration_minutes'] as int?,
+      actualDurationMinutes: map['actual_duration_minutes'] != null ? _toInt(map['actual_duration_minutes']) : null,
       evaluationResult: map['evaluation_result'] as String?,
       executionNote: map['execution_note'] as String?,
-      createdAt: AppDatabase.timestampToDateTime(map['created_at'] as int),
+      createdAt: AppDatabase.timestampToDateTime(_toInt(map['created_at'])),
       deletedAt: map['deleted_at'] != null
-          ? AppDatabase.timestampToDateTime(map['deleted_at'] as int)
+          ? AppDatabase.timestampToDateTime(_toInt(map['deleted_at']))
           : null,
     );
+  }
+
+  /// Helper method to safely convert dynamic value to int
+  /// Handles int, String (numeric), and ISO date strings from SQLite
+  int _toInt(dynamic value) {
+    if (value is int) {
+      return value;
+    } else if (value is String) {
+      // Check if it's an ISO date string (contains 'T' or looks like a date)
+      if (value.contains('T') || value.contains('-')) {
+        try {
+          // Parse as ISO date and convert to Unix timestamp
+          final dateTime = DateTime.parse(value);
+          return dateTime.millisecondsSinceEpoch ~/ 1000;
+        } catch (e) {
+          // If parsing as date fails, try parsing as int
+          return int.parse(value);
+        }
+      }
+      // Regular numeric string
+      return int.parse(value);
+    } else {
+      throw ArgumentError('Cannot convert $value to int');
+    }
   }
 }

@@ -414,17 +414,41 @@ class GoalDao {
           ? (jsonDecode(map['tags'] as String) as List).cast<String>()
           : [],
       deadline: map['deadline'] != null
-          ? AppDatabase.timestampToDateTime(map['deadline'] as int)
+          ? AppDatabase.timestampToDateTime(_toInt(map['deadline']))
           : null,
       priority: Priority.fromString(map['priority'] as String),
       status: GoalStatus.fromString(map['status'] as String),
       successCriteria: map['success_criteria'] as String?,
-      createdAt: AppDatabase.timestampToDateTime(map['created_at'] as int),
-      updatedAt: AppDatabase.timestampToDateTime(map['updated_at'] as int),
+      createdAt: AppDatabase.timestampToDateTime(_toInt(map['created_at'])),
+      updatedAt: AppDatabase.timestampToDateTime(_toInt(map['updated_at'])),
       deletedAt: map['deleted_at'] != null
-          ? AppDatabase.timestampToDateTime(map['deleted_at'] as int)
+          ? AppDatabase.timestampToDateTime(_toInt(map['deleted_at']))
           : null,
       planIds: planIds,
     );
+  }
+
+  /// Helper method to safely convert dynamic value to int
+  /// Handles int, String (numeric), and ISO date strings from SQLite
+  int _toInt(dynamic value) {
+    if (value is int) {
+      return value;
+    } else if (value is String) {
+      // Check if it's an ISO date string (contains 'T' or looks like a date)
+      if (value.contains('T') || value.contains('-')) {
+        try {
+          // Parse as ISO date and convert to Unix timestamp
+          final dateTime = DateTime.parse(value);
+          return dateTime.millisecondsSinceEpoch ~/ 1000;
+        } catch (e) {
+          // If parsing as date fails, try parsing as int
+          return int.parse(value);
+        }
+      }
+      // Regular numeric string
+      return int.parse(value);
+    } else {
+      throw ArgumentError('Cannot convert $value to int');
+    }
   }
 }

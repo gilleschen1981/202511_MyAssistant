@@ -360,7 +360,7 @@ class PlanDao {
     // Parse repeat rule
     final repeatRule = RepeatRule(
       type: RepeatType.fromString(map['repeat_type'] as String),
-      customDays: map['custom_days'] as int?,
+      customDays: map['custom_days'] != null ? _toInt(map['custom_days']) : null,
     );
 
     return PlanModel(
@@ -369,16 +369,40 @@ class PlanDao {
       goalId: map['goal_id'] as String,
       name: map['name'] as String,
       description: map['description'] as String?,
-      startDate: AppDatabase.timestampToDateTime(map['start_date'] as int),
-      endDate: AppDatabase.timestampToDateTime(map['end_date'] as int),
+      startDate: AppDatabase.timestampToDateTime(_toInt(map['start_date'])),
+      endDate: AppDatabase.timestampToDateTime(_toInt(map['end_date'])),
       repeatRule: repeatRule,
       taskConfig: taskConfig,
       status: PlanStatus.fromString(map['status'] as String),
-      createdAt: AppDatabase.timestampToDateTime(map['created_at'] as int),
-      updatedAt: AppDatabase.timestampToDateTime(map['updated_at'] as int),
+      createdAt: AppDatabase.timestampToDateTime(_toInt(map['created_at'])),
+      updatedAt: AppDatabase.timestampToDateTime(_toInt(map['updated_at'])),
       deletedAt: map['deleted_at'] != null
-          ? AppDatabase.timestampToDateTime(map['deleted_at'] as int)
+          ? AppDatabase.timestampToDateTime(_toInt(map['deleted_at']))
           : null,
     );
+  }
+
+  /// Helper method to safely convert dynamic value to int
+  /// Handles int, String (numeric), and ISO date strings from SQLite
+  int _toInt(dynamic value) {
+    if (value is int) {
+      return value;
+    } else if (value is String) {
+      // Check if it's an ISO date string (contains 'T' or looks like a date)
+      if (value.contains('T') || value.contains('-')) {
+        try {
+          // Parse as ISO date and convert to Unix timestamp
+          final dateTime = DateTime.parse(value);
+          return dateTime.millisecondsSinceEpoch ~/ 1000;
+        } catch (e) {
+          // If parsing as date fails, try parsing as int
+          return int.parse(value);
+        }
+      }
+      // Regular numeric string
+      return int.parse(value);
+    } else {
+      throw ArgumentError('Cannot convert $value to int');
+    }
   }
 }

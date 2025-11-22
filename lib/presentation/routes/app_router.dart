@@ -5,6 +5,7 @@ import 'package:myassistant/presentation/features/splash/screens/splash_screen.d
 import 'package:myassistant/presentation/features/auth/screens/login_screen.dart';
 import 'package:myassistant/presentation/features/home/screens/home_screen.dart';
 import 'package:myassistant/presentation/features/planning/screens/goal_detail_screen.dart';
+import 'package:myassistant/presentation/features/review/screens/plan_detail_review_screen.dart';
 import 'package:myassistant/presentation/providers/auth_state_provider.dart';
 import 'package:myassistant/di/providers/repository_providers.dart';
 
@@ -14,9 +15,11 @@ class AppRoutes {
   static const login = '/login';
   static const home = '/';
   static const goalDetail = '/goal/:goalId';
+  static const planReview = '/review/plan/:planId';
 
   /// Helper methods to build route paths with parameters
   static String goalDetailPath(String goalId) => '/goal/$goalId';
+  static String planReviewPath(String planId) => '/review/plan/$planId';
 }
 
 /// GoRouter provider
@@ -73,6 +76,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final goalId = state.pathParameters['goalId']!;
           return GoalDetailScreenWrapper(goalId: goalId);
+        },
+      ),
+      // Plan review detail route
+      GoRoute(
+        path: AppRoutes.planReview,
+        builder: (context, state) {
+          final planId = state.pathParameters['planId']!;
+          return PlanDetailReviewScreen(planId: planId);
         },
       ),
     ],
