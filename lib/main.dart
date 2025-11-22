@@ -4,6 +4,7 @@ import 'package:myassistant/core/theme/app_theme.dart';
 import 'package:myassistant/data/services/notification_service.dart';
 import 'package:myassistant/di/providers/database_provider.dart';
 import 'package:myassistant/presentation/routes/app_router.dart';
+import 'package:myassistant/presentation/providers/app_lifecycle_provider.dart';
 
 void main() async {
   // Ensure Flutter binding is initialized
@@ -30,6 +31,9 @@ class MyAssistantApp extends ConsumerWidget {
     // Initialize database on app start (Android only)
     final databaseAsync = ref.watch(databaseInitializerProvider);
     final router = ref.watch(routerProvider);
+
+    // Initialize app lifecycle manager for background task refresh
+    ref.watch(appLifecycleManagerProvider);
 
     return databaseAsync.when(
       data: (_) => MaterialApp.router(

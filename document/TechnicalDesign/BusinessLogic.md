@@ -651,9 +651,445 @@ class TaskStatistics {
 }
 ```
 
-## 5. 目标与计划管理逻辑
+## 5. 任务快捷菜单逻辑（TaskQuickMenu）
 
-### 5.1 目标管理
+### 5.1 核心职责
+
+任务快捷菜单（TaskQuickMenu）是任务卡片上的操作入口，提供快速执行任务相关操作的能力。核心职责包括：
+
+1. **条件显示**：根据任务状态和类型动态显示合适的菜单按钮
+2. **操作路由**：将用户操作路由到正确的业务逻辑处理
+3. **状态验证**：执行前验证任务状态和执行条件
+4. **用户反馈**：提供即时的视觉反馈和错误提示
+
+**设计原则**：
+- 最小化用户决策负担（不显示无效操作）
+- 状态驱动的UI显示（基于任务实际状态）
+- 类型驱动的行为分派（不同类型有不同处理）
+- 防御性编程（所有操作前都验证前置条件）
+
+**实现位置**：`lib/presentation/features/tasks/widgets/task_quick_menu.dart`
+
+### 5.2 菜单显示规则矩阵
+
+#### 5.2.1 核心显示规则表
+
+| 任务状态 | 任务类型 | 主按钮 | 跳过按钮 | 主按钮行为 | 备注 |
+|---------|---------|-------|---------|-----------|------|
+| **completed** | 任何类型 | ✅ 再次执行 | ❌ 不显示 | 创建新任务实例（重置状态） | 所有已完成任务统一处理 |
+| **active** | simple | ✅ 完成 | ✅ 跳过 | 直接标记为completed | 最简单的任务类型，一键完成 |
+| **active** | timer | ✅ 计时 | ✅ 跳过 | 打开计时对话框 | 显示倒计时/正计时界面 |
+| **active** | counter | ✅ 完成 | ✅ 跳过 | 递增计数，达到目标自动完成 | 按钮显示当前进度 (x/y) |
+| **active** | evaluation | ✅ 完成 | ✅ 跳过 | 打开评估选项菜单 | 必须选择一个评估结果 |
+| **active** | timerWithCount | ✅ 计时 | ✅ 跳过 | 打开计时对话框（含计数） | 计时结束后自动递增计数 |
+| **active** | counterWithEval | ✅ 完成 | ✅ 跳过 | 递增计数，最后一次显示评估 | 动态行为：递增 or 评估 |
+| **skipped** | 任何类型 | ❌ 不显示 | ❌ 不显示 | - | 已跳过任务不可操作 |
+| **deleted** | 任何类型 | ❌ 不显示 | ❌ 不显示 | - | 软删除任务不显示在列表 |
+
+#### 5.2.2 特殊条件处理表
+
+| 条件 | 任务状态 | 菜单显示 | 按钮状态 | 点击行为 | 说明 |
+|------|---------|---------|---------|---------|------|
+| **过期任务** | active | ❌ 不显示整个菜单 | - | - | `isExpired = true`的任务应被自动跳过 |
+| **过期任务** | completed | ✅ 显示 | ✅ 启用"再次执行" | 创建新任务 | 已完成任务可以重新执行 |
+| **窗口未开始** | active | ✅ 显示 | ⚠️ 禁用所有按钮 | 提示"任务未开始" | `now < windowStartTime` |
+| **窗口已过** | active | ❌ 不显示 | - | - | 等同于过期任务 |
+| **计数已满** | active + counter | ✅ 显示"完成" | ✅ 启用 | 显示评估菜单（如有）或直接完成 | `currentCount >= repeatCount` |
+
+#### 5.2.3 任务类型判断逻辑
+
+```dart
+// TaskConfiguration.taskType getter 的判断优先级
+TaskType get taskType {
+  // 1. Timer 和 Evaluation 互斥校验
+  if (durationMinutes != null && evaluationOptions != null) {
+    throw StateError('Timer and evaluation cannot coexist');
+  }
+
+  // 2. 组合类型判断（优先级从高到低）
+  if (durationMinutes != null && repeatCount != null) {
+    return TaskType.timerWithCount;  // Timer + Counter
+  }
+
+  if (durationMinutes != null) {
+    return TaskType.timer;  // 仅 Timer
+  }
+
+  if (repeatCount != null && evaluationOptions != null) {
+    return TaskType.counterWithEval;  // Counter + Evaluation
+  }
+
+  if (repeatCount != null) {
+    return TaskType.counter;  // 仅 Counter
+  }
+
+  if (evaluationOptions != null) {
+    return TaskType.evaluation;  // 仅 Evaluation
+  }
+
+  return TaskType.simple;  // 无配置 = Simple
+}
+```
+
+### 5.3 按钮行为详细说明
+
+#### 5.3.1 主按钮点击处理流程
+
+```dart
+Future<void> handleMainButtonTap(TaskModel task, WidgetRef ref) async {
+  // 1. 已完成任务 → 再次执行
+  if (task.isCompleted) {
+    await _handleReExecute(task, ref);
+    return;
+  }
+
+  // 2. Active状态任务 → 根据类型分派
+  if (task.status == TaskStatus.active) {
+    final taskType = task.config.taskType;
+
+    switch (taskType) {
+      case TaskType.timer:
+      case TaskType.timerWithCount:
+        // 打开计时对话框
+        await _showTimerDialog(context, task, ref);
+        break;
+
+      case TaskType.counter:
+        // 递增计数（可能自动完成）
+        await _handleCounterIncrement(task, ref);
+        break;
+
+      case TaskType.counterWithEval:
+        // 检查是否最后一次计数
+        await _handleCounterWithEval(task, ref);
+        break;
+
+      case TaskType.evaluation:
+        // 显示评估菜单
+        await _showEvaluationMenu(context, task, ref);
+        break;
+
+      case TaskType.simple:
+        // 直接完成
+        await _completeSimpleTask(task, ref);
+        break;
+    }
+  }
+}
+```
+
+#### 5.3.2 Counter类型详细处理
+
+```dart
+Future<void> _handleCounterIncrement(TaskModel task, WidgetRef ref) async {
+  final config = task.config;
+  final newCount = task.currentCount + 1;
+  final willComplete = newCount >= config.repeatCount!;
+
+  if (willComplete) {
+    // 达到目标 → 自动完成任务
+    await ref.read(taskExecutionServiceProvider).completeTask(
+      task: task,
+      actualDurationMinutes: null,
+      evaluationResult: null,
+      executionNote: '完成 ${config.repeatCount} 次计数',
+    );
+  } else {
+    // 仅递增计数
+    await ref.read(taskExecutionServiceProvider).incrementCount(task);
+  }
+}
+
+Future<void> _handleCounterWithEval(TaskModel task, WidgetRef ref) async {
+  final config = task.config;
+  final newCount = task.currentCount + 1;
+  final isLastCount = newCount >= config.repeatCount!;
+
+  if (isLastCount && config.evaluationOptions != null) {
+    // 最后一次 + 有评估 → 显示评估菜单
+    _showEvaluationMenuForCounter(context, task, ref);
+  } else {
+    // 其他情况 → 仅递增计数
+    await ref.read(taskExecutionServiceProvider).incrementCount(task);
+  }
+}
+```
+
+#### 5.3.3 跳过按钮处理
+
+```dart
+Future<void> handleSkipButtonTap(TaskModel task, WidgetRef ref) async {
+  // 1. 验证状态
+  if (task.status != TaskStatus.active) {
+    showErrorToast('只能跳过活跃状态的任务');
+    return;
+  }
+
+  // 2. 执行跳过
+  await ref.read(taskExecutionServiceProvider).skipTask(
+    task: task,
+    skipReason: null,  // 可选：显示对话框让用户输入原因
+  );
+
+  // 3. 刷新列表
+  ref.read(taskListNotifierProvider.notifier).refresh();
+}
+```
+
+#### 5.3.4 再次执行处理
+
+```dart
+Future<void> _handleReExecute(TaskModel task, WidgetRef ref) async {
+  // 1. 验证前置条件
+  if (task.status != TaskStatus.completed) {
+    showErrorToast('只有已完成的任务才能再次执行');
+    return;
+  }
+
+  if (!task.isInCurrentWindow) {
+    showErrorToast('任务时间窗口已过期');
+    return;
+  }
+
+  // 2. 创建新任务
+  final newTask = await ref.read(taskExecutionServiceProvider)
+      .reExecuteTask(task.id);
+
+  if (newTask != null) {
+    showSuccessToast('已创建新任务');
+    ref.read(taskListNotifierProvider.notifier).refresh();
+  }
+}
+```
+
+### 5.4 特殊条件处理
+
+#### 5.4.1 过期任务处理
+
+**检测逻辑**：
+```dart
+bool get isExpired {
+  final now = DateTime.now();
+  return now.isAfter(windowEndTime);
+}
+```
+
+**处理策略**：
+1. **Active状态过期任务**：
+   - UI层：不显示快捷菜单
+   - Service层：由TaskRefreshService自动标记为skipped
+   - 时机：应用启动、定时刷新、手动刷新
+
+2. **Completed状态过期任务**：
+   - 仍显示快捷菜单
+   - "再次执行"按钮可用
+   - 点击时需验证执行窗口（不能超过计划endDate）
+
+#### 5.4.2 执行窗口检查
+
+**窗口状态判断**：
+```dart
+enum WindowStatus {
+  notStarted,   // now < windowStartTime
+  inProgress,   // windowStartTime <= now <= windowEndTime
+  expired;      // now > windowEndTime
+}
+
+WindowStatus get windowStatus {
+  final now = DateTime.now();
+  if (now.isBefore(windowStartTime)) {
+    return WindowStatus.notStarted;
+  }
+  if (now.isAfter(windowEndTime)) {
+    return WindowStatus.expired;
+  }
+  return WindowStatus.inProgress;
+}
+```
+
+**UI处理**：
+- `notStarted`：显示菜单，但按钮禁用，提示"任务未开始"
+- `inProgress`：正常显示，按钮启用
+- `expired`：不显示菜单（等同于过期任务）
+
+#### 5.4.3 最后一次计数的特殊逻辑
+
+**判断条件**：
+```dart
+bool isLastCount(TaskModel task) {
+  if (task.config.repeatCount == null) return false;
+  return task.currentCount + 1 >= task.config.repeatCount!;
+}
+
+bool hasEvaluation(TaskModel task) {
+  return task.config.evaluationOptions != null &&
+         task.config.evaluationOptions!.isNotEmpty;
+}
+```
+
+**处理流程**：
+```
+Counter任务点击"完成"：
+├─ if (currentCount + 1 < repeatCount)
+│   └─ 递增计数，保持active状态
+│
+└─ else if (currentCount + 1 >= repeatCount)
+    ├─ if (hasEvaluation)
+    │   └─ 显示评估菜单 → 选择后完成任务
+    │
+    └─ else
+        └─ 直接完成任务（无评估）
+```
+
+### 5.5 代码实现参考
+
+#### 5.5.1 关键文件位置
+
+**UI层**：
+- `/lib/presentation/features/tasks/widgets/task_quick_menu.dart` - 快捷菜单组件
+- `/lib/presentation/features/tasks/widgets/compact_task_card.dart` - 任务卡片（包含菜单）
+
+**Provider层**：
+- `/lib/presentation/providers/task_list_notifier.dart` - 任务列表状态管理
+- `/lib/presentation/providers/task_state_provider.dart` - 单个任务状态
+
+**Service层**：
+- `/lib/data/services/task_execution_service.dart` - 任务执行服务
+- `/lib/data/repositories/task_repository.dart` - 任务数据仓库
+
+**Model层**：
+- `/lib/data/models/task_model.dart` - 任务模型（含computed properties）
+- `/lib/data/models/enums/status.dart` - TaskStatus枚举
+- `/lib/data/models/enums/task_type.dart` - TaskType枚举
+
+#### 5.5.2 核心代码片段
+
+**菜单显示条件判断**（task_quick_menu.dart:88-189）：
+```dart
+@override
+Widget build(BuildContext context, WidgetRef ref) {
+  // 1. 计算显示条件
+  final canReExecute = task.isCompleted;
+  final hasTimer = task.config.durationMinutes != null;
+  final hasCounter = task.config.repeatCount != null;
+
+  // 2. 构建菜单按钮
+  return Row(
+    children: [
+      // 主按钮
+      if (canReExecute)
+        _MenuButton(icon: Icons.refresh, label: '再次执行', onTap: _handleReExecute)
+      else if (hasTimer)
+        _MenuButton(icon: Icons.timer, label: '计时', onTap: _showTimerDialog)
+      else
+        _MenuButton(icon: Icons.check, label: '完成', onTap: _handleComplete),
+
+      // 分隔线
+      Container(width: 1, height: 56, color: Colors.grey),
+
+      // 跳过按钮
+      _MenuButton(icon: Icons.skip_next, label: '跳过', onTap: _handleSkip),
+    ],
+  );
+}
+```
+
+**Counter任务处理**（task_quick_menu.dart:192-231）：
+```dart
+Future<void> _handleCounterTask(
+  BuildContext context,
+  TaskModel task,
+  WidgetRef ref,
+) async {
+  final willComplete = task.currentCount + 1 >= task.config.repeatCount!;
+
+  if (willComplete &&
+      task.config.evaluationOptions != null &&
+      task.config.evaluationOptions!.isNotEmpty) {
+    // 最后一次 + 有评估 → 显示评估菜单
+    _showEvaluationMenuForCounter(context, task, ref);
+  } else {
+    // 递增计数（可能自动完成）
+    await ref.read(taskListNotifierProvider.notifier).incrementCount(task);
+  }
+}
+```
+
+**TaskModel计算属性**（task_model.dart）：
+```dart
+class TaskModel {
+  // 状态检查
+  bool get isCompleted => status == TaskStatus.completed;
+  bool get isSkipped => status == TaskStatus.skipped;
+  bool get isDeleted => status == TaskStatus.deleted;
+
+  // 时间检查
+  bool get isExpired {
+    final now = DateTime.now();
+    return now.isAfter(windowEndTime);
+  }
+
+  bool get isInCurrentWindow {
+    final now = DateTime.now();
+    return now.isAfter(windowStartTime) && now.isBefore(windowEndTime);
+  }
+
+  // 执行能力检查
+  bool get canExecute => status == TaskStatus.active && !isExpired;
+
+  // 计数任务进度
+  double get progress {
+    if (config.repeatCount == null) return 0.0;
+    return (currentCount / config.repeatCount!).clamp(0.0, 1.0);
+  }
+}
+```
+
+### 5.6 业务规则汇总
+
+#### 5.6.1 菜单显示规则
+1. 只有`active`和`completed`状态的任务显示快捷菜单
+2. `skipped`和`deleted`状态的任务不显示菜单
+3. 过期的`active`任务不显示菜单（应被自动跳过）
+4. 过期的`completed`任务仍显示菜单（支持重新执行）
+
+#### 5.6.2 主按钮显示规则
+1. `completed`状态：统一显示"再次执行"按钮
+2. `active`状态：
+   - 有`durationMinutes`配置 → 显示"计时"按钮
+   - 其他情况 → 显示"完成"按钮
+
+#### 5.6.3 跳过按钮显示规则
+1. 仅`active`状态显示跳过按钮
+2. `completed`状态不显示跳过（已完成无需跳过）
+3. 过期任务不显示跳过（由系统自动处理）
+
+#### 5.6.4 完成按钮行为规则
+1. **Simple任务**：直接调用`completeTask()`
+2. **Timer任务**：打开计时对话框，完成后调用`completeTask(actualDurationMinutes)`
+3. **Counter任务**：
+   - 未达到目标：调用`incrementCount()`
+   - 达到目标且无评估：自动调用`completeTask()`
+   - 达到目标且有评估：显示评估菜单后调用`completeTask(evaluationResult)`
+4. **Evaluation任务**：显示评估菜单，选择后调用`completeTask(evaluationResult)`
+5. **TimerWithCount任务**：打开计时对话框，完成后自动递增计数
+6. **CounterWithEval任务**：结合Counter和Evaluation逻辑
+
+#### 5.6.5 状态转换约束
+1. 只有`active`状态的任务可以完成或跳过
+2. 只有`completed`状态的任务可以再次执行
+3. 再次执行创建的是全新的任务（新UUID），不是修改原任务
+4. 任务状态转换单向：`active` → `completed` 或 `skipped`
+
+#### 5.6.6 时间窗口约束
+1. 执行窗口外的任务不可操作（除了已完成任务的重新执行）
+2. 过期任务由系统自动标记为`skipped`
+3. 重新执行的任务保持原执行窗口（`windowStartTime`和`windowEndTime`）
+4. 窗口验证在UI层和Service层都需要进行
+
+## 6. 目标与计划管理逻辑
+
+### 6.1 目标管理
 
 ```dart
 class GoalManagementService {
@@ -791,7 +1227,7 @@ class GoalManagementService {
 }
 ```
 
-### 5.2 计划管理
+### 6.2 计划管理
 
 ```dart
 class PlanManagementService {
@@ -964,9 +1400,9 @@ class PlanManagementService {
 }
 ```
 
-## 6. 异常处理
+## 7. 异常处理
 
-### 6.1 业务异常定义
+### 7.1 业务异常定义
 
 ```dart
 /// 基础异常类
@@ -1009,7 +1445,7 @@ class ConcurrencyException extends AppException {
 }
 ```
 
-### 6.2 全局异常处理
+### 7.2 全局异常处理
 
 ```dart
 class GlobalExceptionHandler {
@@ -1043,9 +1479,9 @@ class GlobalExceptionHandler {
 }
 ```
 
-## 7. 业务规则汇总
+## 8. 业务规则汇总
 
-### 7.1 任务生成规则
+### 8.1 任务生成规则
 1. 任务只能由系统自动生成，不能手动创建
 2. 每个计划同一时间只能有一个活跃任务
 3. 任务生成时机：
@@ -1054,27 +1490,27 @@ class GlobalExceptionHandler {
    - 手动刷新时
 4. 任务窗口期根据重复规则计算
 
-### 7.2 任务执行规则
+### 8.2 任务执行规则
 1. 任务创建后不可编辑
 2. 任务状态流转单向：Active → Completed/Skipped
 3. 过期任务自动标记为跳过
 4. 计时任务和评价任务互斥
 5. 评价任务必须提供评价结果
 
-### 7.3 计划管理规则
+### 8.3 计划管理规则
 1. 计划名称作为ID，创建后不可修改
 2. 计划必须关联到某个目标
 3. 删除计划时级联软删除相关任务（设置status='deleted'）
 4. 计划暂停时，活跃任务标记为跳过
 
-### 7.4 目标管理规则
+### 8.4 目标管理规则
 1. 已完成的目标不能修改
 2. 删除目标时级联软删除相关计划和任务（设置status='deleted'）
 3. 目标进度为所有计划进度的平均值
 
-## 8. 性能优化策略
+## 9. 性能优化策略
 
-### 8.1 缓存策略
+### 9.1 缓存策略
 ```dart
 class CacheManager {
   // 内存缓存
@@ -1121,7 +1557,7 @@ class CacheEntry {
 }
 ```
 
-### 8.2 批量操作优化
+### 9.2 批量操作优化
 ```dart
 // 批量生成任务
 Future<void> batchGenerateTasks(List<Plan> plans) async {
@@ -1147,9 +1583,9 @@ Future<void> batchUpdateTaskStatus(
 }
 ```
 
-## 9. 测试策略
+## 10. 测试策略
 
-### 9.1 单元测试示例
+### 10.1 单元测试示例
 
 ```dart
 void main() {

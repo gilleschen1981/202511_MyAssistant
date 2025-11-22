@@ -247,9 +247,15 @@ class TaskListNotifier extends _$TaskListNotifier {
   }
 
   /// Increment counter
-  Future<void> incrementCount(TaskModel task) async {
+  Future<void> incrementCount(TaskModel task, {String? evaluationResult}) async {
     try {
-      final updatedTask = await _executionService.incrementCount(task);
+      final updatedTask = await _executionService.incrementCount(
+        task,
+        evaluationResult: evaluationResult,
+      );
+
+      // Check if task is now completed
+      final isCompleted = updatedTask.status == TaskStatus.completed;
 
       // Update task in list
       state = AsyncValue.data(
@@ -260,9 +266,16 @@ class TaskListNotifier extends _$TaskListNotifier {
           todayTasks: state.value!.todayTasks.map((t) {
             return t.id == updatedTask.id ? updatedTask : t;
           }).toList(),
-          activeTasks: state.value!.activeTasks.map((t) {
-            return t.id == updatedTask.id ? updatedTask : t;
-          }).toList(),
+          // If completed, remove from activeTasks
+          activeTasks: isCompleted
+              ? state.value!.activeTasks.where((t) => t.id != updatedTask.id).toList()
+              : state.value!.activeTasks.map((t) {
+                  return t.id == updatedTask.id ? updatedTask : t;
+                }).toList(),
+          // If completed, add to completedTasks
+          completedTasks: isCompleted
+              ? [...state.value!.completedTasks, updatedTask]
+              : state.value!.completedTasks,
         ),
       );
     } catch (e) {
@@ -295,6 +308,36 @@ class TaskListNotifier extends _$TaskListNotifier {
       state = AsyncValue.data(
         state.value!.copyWith(error: e.toString()),
       );
+    }
+  }
+
+  /// Re-execute completed task within execution window
+  ///
+  /// Creates a new task instance with the same configuration.
+  /// Only works if:
+  /// - Task is completed
+  /// - Current time is within task's execution window
+  Future<TaskModel?> reExecuteTask(TaskModel task) async {
+    try {
+      final newTask = await _executionService.reExecuteTask(task);
+
+      if (newTask != null) {
+        // Add new task to lists
+        state = AsyncValue.data(
+          state.value!.copyWith(
+            allTasks: [...state.value!.allTasks, newTask],
+            todayTasks: [...state.value!.todayTasks, newTask],
+            activeTasks: [...state.value!.activeTasks, newTask],
+          ),
+        );
+      }
+
+      return newTask;
+    } catch (e) {
+      state = AsyncValue.data(
+        state.value!.copyWith(error: e.toString()),
+      );
+      return null;
     }
   }
 }

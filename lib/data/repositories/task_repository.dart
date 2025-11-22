@@ -47,9 +47,10 @@ class TaskRepository implements ITaskRepository {
     }
 
     // Check if there's already an active task for this plan
+    // Only one active task is allowed per plan, regardless of window
     final activeTask = await _taskDao.getActivePlanTask(planId);
-    if (activeTask != null && activeTask.isInCurrentWindow) {
-      throw Exception('Plan already has an active task in the current window');
+    if (activeTask != null) {
+      throw Exception('该计划已有活跃任务，请先完成或跳过当前任务');
     }
 
     final now = DateTime.now();
@@ -192,7 +193,11 @@ class TaskRepository implements ITaskRepository {
   }
 
   @override
-  Future<TaskModel> updateTaskProgress(String taskId, int currentCount) async {
+  Future<TaskModel> updateTaskProgress(
+    String taskId,
+    int currentCount, {
+    String? evaluationResult,
+  }) async {
     final task = await _taskDao.getTaskById(taskId);
     if (task == null) {
       throw Exception('Task not found');
@@ -217,6 +222,7 @@ class TaskRepository implements ITaskRepository {
     if (currentCount >= task.config.repeatCount!) {
       return await completeTask(
         taskId: taskId,
+        evaluationResult: evaluationResult,
         executionNote: 'Auto-completed after reaching target count',
       );
     }

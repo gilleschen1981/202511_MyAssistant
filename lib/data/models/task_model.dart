@@ -76,6 +76,11 @@ class TaskModel extends Equatable {
     return now.isAfter(windowStartTime) && now.isBefore(windowEndTime);
   }
 
+  /// Check if a specific time is within task's execution window
+  bool isWithinExecutionWindow(DateTime time) {
+    return time.isAfter(windowStartTime) && time.isBefore(windowEndTime);
+  }
+
   /// Factory constructor for creating from JSON
   factory TaskModel.fromJson(Map<String, dynamic> json) =>
       _$TaskModelFromJson(json);

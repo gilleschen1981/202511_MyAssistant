@@ -25,13 +25,14 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     'later': false,
   };
 
-  // Track last tap position for quick menu
-  Offset _lastTapPosition = Offset.zero;
-
   @override
   void initState() {
     super.initState();
-    // Tasks auto-load with AsyncNotifier, no manual load needed
+    // Tasks auto-load with AsyncNotifier
+    // Trigger refresh when screen opens to generate new tasks and handle expired ones
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(taskListNotifierProvider.notifier).refreshTasks();
+    });
   }
 
   @override
@@ -140,15 +141,10 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
               itemCount: tasks.length,
               itemBuilder: (context, index) {
                 final task = tasks[index];
-                return GestureDetector(
-                  onTapDown: (details) {
-                    // Store tap position for menu
-                    _lastTapPosition = details.globalPosition;
-                  },
-                  child: CompactTaskCard(
-                    task: task,
-                    onTap: () => _showQuickMenu(task),
-                  ),
+                return CompactTaskCard(
+                  task: task,
+                  onTap: () {}, // Empty onTap to enable gesture detection
+                  onTapWithPosition: (position) => _showQuickMenu(task, position),
                 );
               },
             ),
@@ -182,8 +178,22 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     );
   }
 
-  void _showQuickMenu(TaskModel task) {
+  void _showQuickMenu(TaskModel task, Offset tapPosition) {
+    // Menu display conditions (see document/TechnicalDesign/BusinessLogic.md § 5.6.1)
+    // Only active and completed tasks show the quick menu
+    final shouldShowMenu = task.status == TaskStatus.active ||
+                           task.status == TaskStatus.completed;
+
+    // Active tasks with expired window should not show menu
+    // (They will be auto-skipped by TaskRefreshService)
+    final isExpiredActive = task.status == TaskStatus.active && task.isExpired;
+
+    if (!shouldShowMenu || isExpiredActive) {
+      // Don't show menu for skipped, deleted, or expired active tasks
+      return;
+    }
+
     // Show quick action menu at tap position
-    TaskQuickMenu.show(context, task, _lastTapPosition);
+    TaskQuickMenu.show(context, task, tapPosition);
   }
 }

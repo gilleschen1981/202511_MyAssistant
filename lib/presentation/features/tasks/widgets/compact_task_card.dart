@@ -7,11 +7,13 @@ import 'package:myassistant/data/models/enums/status.dart';
 class CompactTaskCard extends StatelessWidget {
   final TaskModel task;
   final VoidCallback? onTap;
+  final void Function(Offset)? onTapWithPosition;
 
   const CompactTaskCard({
     super.key,
     required this.task,
     this.onTap,
+    this.onTapWithPosition,
   });
 
   @override
@@ -41,6 +43,9 @@ class CompactTaskCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
+      onTapDown: onTapWithPosition != null
+          ? (details) => onTapWithPosition!(details.globalPosition)
+          : null,
       child: Container(
         height: 64, // TaskView.md spec
         decoration: BoxDecoration(

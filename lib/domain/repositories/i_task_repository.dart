@@ -65,7 +65,11 @@ abstract class ITaskRepository {
   });
 
   /// Update task progress (for counter tasks)
-  Future<TaskModel> updateTaskProgress(String taskId, int currentCount);
+  Future<TaskModel> updateTaskProgress(
+    String taskId,
+    int currentCount, {
+    String? evaluationResult,
+  });
 
   /// Get task statistics
   Future<Map<String, dynamic>> getTaskStatistics(String userId);

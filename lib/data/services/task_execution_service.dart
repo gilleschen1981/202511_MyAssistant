@@ -345,17 +345,13 @@ class TaskExecutionService {
     final newCount = task.currentCount + 1;
 
     // 4. Update progress
-    final updatedTask = await _taskRepository.updateTaskProgress(task.id, newCount);
-
-    // 5. Check if reached target
-    if (newCount >= task.config.repeatCount!) {
-      // Auto-complete task with optional evaluation result
-      return (await completeTask(
-        task: updatedTask,
-        evaluationResult: evaluationResult,
-        executionNote: 'Completed after reaching target count',
-      )).completedTask;
-    }
+    // Note: The repository will auto-complete the task if it reaches the target count
+    // Pass evaluation result so it can be saved when task auto-completes
+    final updatedTask = await _taskRepository.updateTaskProgress(
+      task.id,
+      newCount,
+      evaluationResult: evaluationResult,
+    );
 
     return updatedTask;
   }
@@ -380,9 +376,41 @@ class TaskExecutionService {
   }
 
   /// Re-execute completed task (create a new similar task)
-  // Note: reExecuteTask is no longer supported in v4.0
-  // Repeat execution has been removed
-  // To repeat a task, create a new independent task with the same configuration
+  ///
+  /// Allows users to repeat any completed task.
+  /// Creates a new task instance with the same configuration but reset progress.
+  /// The new task will have the same execution window as the original task.
+  ///
+  /// Requirements:
+  /// - Task must be completed
+  /// - Creates new task with same config, same window, reset currentCount to 0
+  ///
+  /// Returns the newly created task instance, or null if task is not completed.
+  Future<TaskModel?> reExecuteTask(TaskModel task) async {
+    AppLogger.d('reExecuteTask called for task: ${task.id}', tag: 'TaskExecutionService');
+
+    // 1. Validate task is completed
+    if (task.status != TaskStatus.completed) {
+      AppLogger.w('Cannot re-execute task: not completed. Status: ${task.status}', tag: 'TaskExecutionService');
+      return null;
+    }
+
+    // 2. Create new task with same configuration and same execution window
+    // This preserves the original deadline (e.g., tomorrow's tasks stay tomorrow)
+    AppLogger.i('Creating new task instance for re-execution with original window', tag: 'TaskExecutionService');
+    final newTask = await _taskRepository.createTask(
+      userId: task.userId,
+      planId: task.planId,
+      name: task.name,
+      description: task.description,
+      config: task.config,
+      windowStartTime: task.windowStartTime,
+      windowEndTime: task.windowEndTime,
+    );
+
+    AppLogger.i('New task created successfully: ${newTask.id}', tag: 'TaskExecutionService');
+    return newTask;
+  }
 
   /// Validate task completion data
   void _validateTaskCompletion(TaskModel task, String? evaluationResult) {
