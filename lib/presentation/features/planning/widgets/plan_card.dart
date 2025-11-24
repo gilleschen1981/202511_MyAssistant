@@ -63,16 +63,19 @@ class PlanCard extends StatelessWidget {
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              '${_formatDate(plan.startDate)} - ${_formatDate(plan.endDate)}',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+                            Expanded(
+                              child: Text(
+                                '${_formatDate(plan.startDate)} - ${_formatDate(plan.endDate)}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            const SizedBox(width: 8),
                             if (plan.durationDays > 0) ...[
+                              const SizedBox(width: 8),
                               Text(
-                                '(${plan.durationDays} days)',
+                                '(${plan.durationDays}天)',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                   fontWeight: FontWeight.w600,
@@ -84,9 +87,6 @@ class PlanCard extends StatelessWidget {
                       ],
                     ),
                   ),
-
-                  // Task type indicator
-                  _buildTaskTypeBadge(context, plan.taskConfig.taskType),
                 ],
               ),
 
@@ -189,35 +189,6 @@ class PlanCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTaskTypeBadge(BuildContext context, TaskType type) {
-    final theme = Theme.of(context);
-    String label = _getTaskTypeLabel(type);
-    IconData icon = _getTaskTypeIcon(type);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: theme.colorScheme.primary),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildBadge({
     required BuildContext context,
     required String label,
@@ -246,40 +217,6 @@ class PlanCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _getTaskTypeLabel(TaskType type) {
-    switch (type) {
-      case TaskType.simple:
-        return 'Simple';
-      case TaskType.timer:
-        return 'Timer';
-      case TaskType.counter:
-        return 'Counter';
-      case TaskType.evaluation:
-        return 'Eval';
-      case TaskType.timerWithCount:
-        return 'Timer+Count';
-      case TaskType.counterWithEval:
-        return 'Count+Eval';
-    }
-  }
-
-  IconData _getTaskTypeIcon(TaskType type) {
-    switch (type) {
-      case TaskType.simple:
-        return Icons.check_box;
-      case TaskType.timer:
-        return Icons.timer;
-      case TaskType.counter:
-        return Icons.numbers;
-      case TaskType.evaluation:
-        return Icons.star;
-      case TaskType.timerWithCount:
-        return Icons.timelapse;
-      case TaskType.counterWithEval:
-        return Icons.analytics;
-    }
   }
 
   String _getRepeatLabel(RepeatRule rule) {
