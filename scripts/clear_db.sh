@@ -21,11 +21,21 @@ NC='\033[0m' # No Color
 echo -e "${YELLOW}🗑️  Database Clear Tool${NC}"
 echo ""
 
-# Check if device is connected
-if ! $ADB devices | grep -q "device$"; then
+# Check devices and select one if multiple
+DEVICE_COUNT=$($ADB devices 2>/dev/null | grep -c "device$")
+
+if [ "$DEVICE_COUNT" -eq 0 ]; then
     echo -e "${RED}❌ Error: No Android device connected.${NC}"
     echo "   Please connect a device or start an emulator."
     exit 1
+elif [ "$DEVICE_COUNT" -gt 1 ]; then
+    echo -e "${YELLOW}⚠ Multiple devices detected:${NC}"
+    echo ""
+    $ADB devices -l | grep "device$"
+    echo ""
+    read -p "Enter device ID (e.g., emulator-5554): " DEVICE_ID
+    ADB="$ADB -s $DEVICE_ID"
+    echo ""
 fi
 
 # Warning and confirmation

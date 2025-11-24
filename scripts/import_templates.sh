@@ -73,11 +73,24 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
-# Check if device is connected
-if ! $ADB devices | grep -q "device$"; then
+# Check devices and select one
+DEVICE_LIST=$("$ADB" devices 2>&1 | grep -E "device$|emulator")
+DEVICE_COUNT=$(echo "$DEVICE_LIST" | wc -l | tr -d ' ')
+
+if [ "$DEVICE_COUNT" -eq 0 ]; then
     echo -e "${RED}❌ Error: No Android device connected.${NC}"
     echo "   Please connect a device or start an emulator."
     exit 1
+elif [ "$DEVICE_COUNT" -gt 1 ]; then
+    echo -e "${YELLOW}⚠ Multiple devices detected:${NC}"
+    echo ""
+    "$ADB" devices -l
+    echo ""
+    read -p "Enter device ID (e.g., emulator-5554): " DEVICE_ID
+    if [ -n "$DEVICE_ID" ]; then
+        ADB="$ADB -s $DEVICE_ID"
+    fi
+    echo ""
 fi
 
 echo -e "${BLUE}📄 Validating template file...${NC}"

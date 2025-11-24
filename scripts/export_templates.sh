@@ -26,6 +26,18 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}🔍 Goal & Plan Template Exporter${NC}"
 echo ""
 
+# Check devices and select one if multiple
+DEVICE_COUNT=$($ADB devices 2>/dev/null | grep -c "device$")
+if [ "$DEVICE_COUNT" -gt 1 ]; then
+    echo -e "${YELLOW}⚠ Multiple devices detected:${NC}"
+    echo ""
+    $ADB devices -l | grep "device$"
+    echo ""
+    read -p "Enter device ID (e.g., emulator-5554): " DEVICE_ID
+    ADB="$ADB -s $DEVICE_ID"
+    echo ""
+fi
+
 # Check if adb is available
 if ! command -v "$ADB" &> /dev/null && ! [ -x "$ADB" ]; then
     echo -e "${RED}❌ Error: adb not found. Please install Android SDK Platform-Tools.${NC}"

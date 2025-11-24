@@ -14,6 +14,18 @@ if ! [ -x "$ADB" ]; then
     ADB="adb"
 fi
 
+# Check devices and select one if multiple
+DEVICE_COUNT=$($ADB devices 2>/dev/null | grep -c "device$")
+if [ "$DEVICE_COUNT" -gt 1 ]; then
+    echo "⚠ Multiple devices detected:"
+    echo ""
+    $ADB devices -l | grep "device$"
+    echo ""
+    read -p "Enter device ID (e.g., emulator-5554): " DEVICE_ID
+    ADB="$ADB -s $DEVICE_ID"
+    echo ""
+fi
+
 # Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
