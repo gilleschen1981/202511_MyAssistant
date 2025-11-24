@@ -5,6 +5,7 @@ import 'package:myassistant/data/services/task_generation_service.dart';
 import 'package:myassistant/data/services/notification_service.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
 import 'package:myassistant/domain/repositories/i_plan_repository.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Refresh result model
 class RefreshResult {
@@ -39,25 +40,33 @@ class TaskRefreshService {
 
   /// Refresh all tasks for a user
   Future<RefreshResult> refreshAllTasks(String userId) async {
+    AppLogger.i('refreshAllTasks called for user: $userId', tag: 'TaskRefreshService');
     final result = RefreshResult();
 
     try {
       // 1. Handle expired tasks
+      AppLogger.d('Handling expired tasks...', tag: 'TaskRefreshService');
       result.expiredCount = await _handleExpiredTasks(userId);
+      AppLogger.i('Handled ${result.expiredCount} expired tasks', tag: 'TaskRefreshService');
 
       // 2. Generate new tasks
+      AppLogger.d('Generating pending tasks...', tag: 'TaskRefreshService');
       final newTasks = await _generationService.generateAllPendingTasks(userId);
       result.generatedCount = newTasks.length;
       result.newTasks = newTasks;
+      AppLogger.i('Generated ${newTasks.length} new tasks', tag: 'TaskRefreshService');
 
       // 3. Send notifications for new tasks
       if (newTasks.isNotEmpty) {
+        AppLogger.d('Sending notifications for new tasks...', tag: 'TaskRefreshService');
         await _notificationService.notifyNewTasks(newTasks);
       }
 
       result.success = true;
       result.lastRefreshTime = DateTime.now();
+      AppLogger.i('refreshAllTasks completed successfully ✓', tag: 'TaskRefreshService');
     } catch (e) {
+      AppLogger.e('Error during refreshAllTasks', tag: 'TaskRefreshService', error: e);
       result.success = false;
       result.error = e.toString();
     }
@@ -125,17 +134,21 @@ class TaskRefreshService {
 
   /// Refresh tasks on app resume
   Future<RefreshResult> refreshOnResume(String userId) async {
+    AppLogger.i('refreshOnResume called for user: $userId', tag: 'TaskRefreshService');
     // Quick refresh focusing on immediate tasks
     final result = RefreshResult();
 
     try {
       // Only handle tasks in current window
+      AppLogger.d('Getting tasks in current window...', tag: 'TaskRefreshService');
       final currentWindowTasks = await _taskRepository.getTasksInCurrentWindow(userId);
+      AppLogger.d('Found ${currentWindowTasks.length} tasks in current window', tag: 'TaskRefreshService');
 
       // Check for expired tasks
       int expiredCount = 0;
       for (final task in currentWindowTasks) {
         if (task.status == TaskStatus.active && task.isExpired) {
+          AppLogger.d('Marking task as expired: ${task.name}', tag: 'TaskRefreshService');
           await _taskRepository.skipTask(
             taskId: task.id,
             reason: 'Task expired while app was in background',
@@ -144,19 +157,32 @@ class TaskRefreshService {
         }
       }
       result.expiredCount = expiredCount;
+      AppLogger.i('Marked $expiredCount tasks as expired', tag: 'TaskRefreshService');
 
       // Generate only immediate tasks
+      AppLogger.d('Getting active plans...', tag: 'TaskRefreshService');
       final plans = await _planRepository.getActivePlans(userId);
+      AppLogger.i('Found ${plans.length} active plans', tag: 'TaskRefreshService');
       final newTasks = <TaskModel>[];
 
       for (final plan in plans) {
+        AppLogger.d('Checking plan: ${plan.name} (id: ${plan.id})', tag: 'TaskRefreshService');
         // Check if plan needs immediate task
         final activeTask = await _taskRepository.getActivePlanTask(plan.id);
-        if (activeTask == null || activeTask.isExpired) {
+        if (activeTask == null) {
+          AppLogger.d('Plan has no active task, generating...', tag: 'TaskRefreshService');
           final task = await _generationService.generateNextTask(plan);
           if (task != null) {
             newTasks.add(task);
           }
+        } else if (activeTask.isExpired) {
+          AppLogger.d('Plan has expired task, generating new one...', tag: 'TaskRefreshService');
+          final task = await _generationService.generateNextTask(plan);
+          if (task != null) {
+            newTasks.add(task);
+          }
+        } else {
+          AppLogger.d('Plan already has active task: ${activeTask.name}', tag: 'TaskRefreshService');
         }
       }
 
@@ -164,12 +190,14 @@ class TaskRefreshService {
       result.newTasks = newTasks;
       result.success = true;
       result.lastRefreshTime = DateTime.now();
+      AppLogger.i('Resume refresh completed: ${newTasks.length} new tasks, $expiredCount expired', tag: 'TaskRefreshService');
 
       // Send notifications
       if (newTasks.isNotEmpty) {
         await _notificationService.notifyNewTasks(newTasks);
       }
     } catch (e) {
+      AppLogger.e('Error during resume refresh', tag: 'TaskRefreshService', error: e);
       result.success = false;
       result.error = e.toString();
     }

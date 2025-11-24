@@ -283,14 +283,20 @@ class PlanDao {
 
   /// Get plans that need task generation
   Future<List<PlanModel>> getPlansNeedingTaskGeneration(String userId) async {
+    AppLogger.i('getPlansNeedingTaskGeneration called for user: $userId', tag: 'PlanDao');
     final db = await _database.database;
     final now = AppDatabase.getCurrentTimestamp();
 
     // Get active plans
+    AppLogger.d('Getting active plans...', tag: 'PlanDao');
     final activePlans = await getActivePlans(userId);
+    AppLogger.i('Found ${activePlans.length} active plans', tag: 'PlanDao');
+
     final plansNeedingGeneration = <PlanModel>[];
 
     for (final plan in activePlans) {
+      AppLogger.d('Checking plan: ${plan.name} (id: ${plan.id})', tag: 'PlanDao');
+
       // Check if there's an active task for this plan
       final activeTaskCount = Sqflite.firstIntValue(await db.rawQuery(
         '''SELECT COUNT(*) FROM tasks
@@ -299,11 +305,17 @@ class PlanDao {
         [plan.id, now],
       ));
 
+      AppLogger.d('Active task count for plan ${plan.name}: $activeTaskCount', tag: 'PlanDao');
+
       if (activeTaskCount == null || activeTaskCount == 0) {
+        AppLogger.d('✓ Plan ${plan.name} needs task generation', tag: 'PlanDao');
         plansNeedingGeneration.add(plan);
+      } else {
+        AppLogger.d('✗ Plan ${plan.name} already has active task', tag: 'PlanDao');
       }
     }
 
+    AppLogger.i('${plansNeedingGeneration.length} plans need task generation', tag: 'PlanDao');
     return plansNeedingGeneration;
   }
 

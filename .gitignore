@@ -53,3 +53,4 @@ debug_db/
 *.sqlite3
 .metadata
 .claude/settings.local.json
+templates/*

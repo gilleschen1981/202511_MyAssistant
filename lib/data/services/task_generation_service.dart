@@ -5,6 +5,7 @@ import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/data/models/enums/task_type.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
 import 'package:myassistant/domain/repositories/i_plan_repository.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Execution window for tasks
 class ExecutionWindow {
@@ -28,21 +29,34 @@ class TaskGenerationService {
 
   /// Generate next task for a specific plan
   Future<TaskModel?> generateNextTask(PlanModel plan) async {
+    AppLogger.d('generateNextTask called for plan: ${plan.name}', tag: 'TaskGenerationService');
+
     // 1. Check if plan is active
     if (!_isPlanActive(plan)) {
+      AppLogger.d('Plan is not active, skipping', tag: 'TaskGenerationService');
       return null;
     }
+    AppLogger.d('Plan is active ✓', tag: 'TaskGenerationService');
 
     // 2. Get the last task for this plan
+    AppLogger.d('Getting last task for plan...', tag: 'TaskGenerationService');
     final lastTask = await _getLastTaskForPlan(plan.id);
+    if (lastTask != null) {
+      AppLogger.d('Last task: ${lastTask.name}, status: ${lastTask.status}, window: ${lastTask.windowStartTime} - ${lastTask.windowEndTime}', tag: 'TaskGenerationService');
+    } else {
+      AppLogger.d('No previous task found (first generation)', tag: 'TaskGenerationService');
+    }
 
     // 3. Check if should generate new task
     if (!_shouldGenerateTask(plan, lastTask)) {
+      AppLogger.d('Should not generate task (conditions not met)', tag: 'TaskGenerationService');
       return null;
     }
+    AppLogger.d('Should generate task ✓', tag: 'TaskGenerationService');
 
     // 4. Calculate execution window
     final window = _calculateExecutionWindow(plan, lastTask);
+    AppLogger.d('Execution window: ${window.start} - ${window.end}', tag: 'TaskGenerationService');
 
     // 5. Create new task
     final task = TaskModel(
@@ -59,32 +73,48 @@ class TaskGenerationService {
     );
 
     // 6. Save task to database
-    return await _taskRepository.createTask(
-      userId: task.userId,
-      planId: task.planId,
-      name: task.name,
-      description: task.description,
-      config: task.config,
-      windowStartTime: task.windowStartTime,
-      windowEndTime: task.windowEndTime,
-    );
+    AppLogger.i('Creating task in database: ${task.name}', tag: 'TaskGenerationService');
+    try {
+      final createdTask = await _taskRepository.createTask(
+        userId: task.userId,
+        planId: task.planId,
+        name: task.name,
+        description: task.description,
+        config: task.config,
+        windowStartTime: task.windowStartTime,
+        windowEndTime: task.windowEndTime,
+      );
+      AppLogger.i('Task created successfully ✓', tag: 'TaskGenerationService');
+      return createdTask;
+    } catch (e) {
+      AppLogger.e('Failed to create task', tag: 'TaskGenerationService', error: e);
+      return null;
+    }
   }
 
   /// Batch generate tasks (on app startup)
   Future<List<TaskModel>> generateAllPendingTasks(String userId) async {
+    AppLogger.i('generateAllPendingTasks called for user: $userId', tag: 'TaskGenerationService');
     final generatedTasks = <TaskModel>[];
 
     // 1. Get all plans that need task generation
+    AppLogger.d('Getting plans needing task generation...', tag: 'TaskGenerationService');
     final plans = await _planRepository.getPlansNeedingTaskGeneration(userId);
+    AppLogger.i('Found ${plans.length} plans needing task generation', tag: 'TaskGenerationService');
 
     // 2. Generate task for each plan
     for (final plan in plans) {
+      AppLogger.d('Processing plan: ${plan.name} (id: ${plan.id})', tag: 'TaskGenerationService');
       final task = await generateNextTask(plan);
       if (task != null) {
+        AppLogger.i('✓ Generated task: ${task.name}', tag: 'TaskGenerationService');
         generatedTasks.add(task);
+      } else {
+        AppLogger.d('✗ No task generated for plan: ${plan.name}', tag: 'TaskGenerationService');
       }
     }
 
+    AppLogger.i('Generated ${generatedTasks.length} tasks in total', tag: 'TaskGenerationService');
     return generatedTasks;
   }
 
@@ -131,40 +161,55 @@ class TaskGenerationService {
 
   /// Determine if should generate new task
   bool _shouldGenerateTask(PlanModel plan, TaskModel? lastTask) {
+    AppLogger.d('Checking if should generate task for plan: ${plan.name}', tag: 'TaskGenerationService');
+
     // 1. If no history task, should generate
     if (lastTask == null) {
+      AppLogger.d('No previous task, should generate ✓', tag: 'TaskGenerationService');
       return true;
     }
 
     // 2. If last task is still active and not expired, don't generate
     if (lastTask.status == TaskStatus.active && !lastTask.isExpired) {
+      AppLogger.d('Last task is still active and not expired, should NOT generate ✗', tag: 'TaskGenerationService');
       return false;
     }
 
     // 3. Check based on repeat rule
     final now = DateTime.now();
+    AppLogger.d('Repeat type: ${plan.repeatRule.type}', tag: 'TaskGenerationService');
 
     switch (plan.repeatRule.type) {
       case RepeatType.oneTime:
         // One-time task: don't generate if already has task
+        AppLogger.d('One-time task already has task, should NOT generate ✗', tag: 'TaskGenerationService');
         return false;
 
       case RepeatType.daily:
         // Daily task: check if today already has task
-        return !_isSameDay(lastTask.windowStartTime, now);
+        final isSameDay = _isSameDay(lastTask.windowStartTime, now);
+        AppLogger.d('Daily task - same day check: $isSameDay, should generate: ${!isSameDay}', tag: 'TaskGenerationService');
+        return !isSameDay;
 
       case RepeatType.weekly:
         // Weekly task: check if this week already has task
-        return !_isSameWeek(lastTask.windowStartTime, now);
+        final isSameWeek = _isSameWeek(lastTask.windowStartTime, now);
+        AppLogger.d('Weekly task - same week check: $isSameWeek, should generate: ${!isSameWeek}', tag: 'TaskGenerationService');
+        return !isSameWeek;
 
       case RepeatType.monthly:
         // Monthly task: check if this month already has task
-        return !_isSameMonth(lastTask.windowStartTime, now);
+        final isSameMonth = _isSameMonth(lastTask.windowStartTime, now);
+        AppLogger.d('Monthly task - same month check: $isSameMonth, should generate: ${!isSameMonth}', tag: 'TaskGenerationService');
+        return !isSameMonth;
 
       case RepeatType.custom:
         // Custom interval: check days passed
         final daysSinceLastTask = now.difference(lastTask.windowStartTime).inDays;
-        return daysSinceLastTask >= (plan.repeatRule.customDays ?? 1);
+        final customDays = plan.repeatRule.customDays ?? 1;
+        final shouldGenerate = daysSinceLastTask >= customDays;
+        AppLogger.d('Custom task - days since last: $daysSinceLastTask, required: $customDays, should generate: $shouldGenerate', tag: 'TaskGenerationService');
+        return shouldGenerate;
     }
   }
 
