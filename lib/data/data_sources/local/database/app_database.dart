@@ -434,25 +434,26 @@ class AppDatabase implements DatabaseInterface {
       END
     ''');
 
-    // Validate task configuration on insert
-    batch.execute('''
-      CREATE TRIGGER validate_task_config
-      BEFORE INSERT ON tasks
-      FOR EACH ROW
-      BEGIN
-        SELECT CASE
-          WHEN json_extract(NEW.config, '\$.durationMinutes') IS NOT NULL
-           AND json_extract(NEW.config, '\$.evaluationOptions') IS NOT NULL
-          THEN RAISE(ABORT, 'Timer and evaluation cannot coexist')
-        END;
-      END
-    ''');
+    // Note: Task configuration validation (Timer + Evaluation coexistence check)
+    // is handled in Dart code (plan_model.dart) to ensure compatibility with
+    // older SQLite versions that don't support json_extract (< 3.38.0)
   }
 
-  /// Upgrade database (no migrations in development mode)
+  /// Upgrade database
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    AppLogger.w('Database upgrade not supported in development mode', tag: 'AppDatabase');
-    AppLogger.w('Please clear app data and reinstall for schema changes', tag: 'AppDatabase');
+    AppLogger.i('Upgrading database from version $oldVersion to $newVersion', tag: 'AppDatabase');
+
+    // Migration from v1 to v2: Remove json_extract trigger for older SQLite compatibility
+    if (oldVersion < 2) {
+      AppLogger.i('Applying migration v1 -> v2: Removing validate_task_config trigger', tag: 'AppDatabase');
+      try {
+        await db.execute('DROP TRIGGER IF EXISTS validate_task_config');
+        AppLogger.i('Migration v1 -> v2 completed successfully', tag: 'AppDatabase');
+      } catch (e) {
+        AppLogger.e('Migration v1 -> v2 failed', tag: 'AppDatabase', error: e);
+        rethrow;
+      }
+    }
   }
 
   /// Close database connection

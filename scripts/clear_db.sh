@@ -29,12 +29,30 @@ if [ "$DEVICE_COUNT" -eq 0 ]; then
     echo "   Please connect a device or start an emulator."
     exit 1
 elif [ "$DEVICE_COUNT" -gt 1 ]; then
-    echo -e "${YELLOW}⚠ Multiple devices detected:${NC}"
+    echo -e "${YELLOW}⚠️  Multiple devices detected:${NC}"
     echo ""
-    $ADB devices -l | grep "device$"
+
+    # Get list of devices
+    DEVICES=($($ADB devices | grep "device$" | awk '{print $1}'))
+
+    # Display devices with numbers
+    for i in "${!DEVICES[@]}"; do
+        echo "   $((i+1)). ${DEVICES[$i]}"
+    done
     echo ""
-    read -p "Enter device ID (e.g., emulator-5554): " DEVICE_ID
+
+    # Get user selection
+    read -p "Select device number (1-${#DEVICES[@]}): " SELECTION
+
+    # Validate selection
+    if [[ ! "$SELECTION" =~ ^[0-9]+$ ]] || [ "$SELECTION" -lt 1 ] || [ "$SELECTION" -gt "${#DEVICES[@]}" ]; then
+        echo -e "${RED}❌ Invalid selection.${NC}"
+        exit 1
+    fi
+
+    DEVICE_ID="${DEVICES[$((SELECTION-1))]}"
     ADB="$ADB -s $DEVICE_ID"
+    echo -e "${GREEN}✓ Selected: $DEVICE_ID${NC}"
     echo ""
 fi
 

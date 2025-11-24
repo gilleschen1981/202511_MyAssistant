@@ -6,7 +6,7 @@ class AppConstants {
 
   // Database
   static const String databaseName = 'myassistant.db';
-  static const int databaseVersion = 1;
+  static const int databaseVersion = 2;
 
   // Preferences Keys
   static const String prefKeyUserId = 'user_id';
