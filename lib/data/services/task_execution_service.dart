@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
-import 'package:myassistant/data/services/notification_service.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
 import 'package:myassistant/core/errors/exceptions.dart';
 import 'package:myassistant/core/utils/app_logger.dart';
@@ -139,16 +138,13 @@ class TaskStatistics {
 /// ```
 class TaskExecutionService {
   final ITaskRepository _taskRepository;
-  final NotificationService _notificationService;
 
   /// Active timer sessions indexed by task ID
   final Map<String, TimerSession> _activeSessions = {};
 
   TaskExecutionService({
     required ITaskRepository taskRepository,
-    required NotificationService notificationService,
-  })  : _taskRepository = taskRepository,
-        _notificationService = notificationService;
+  })  : _taskRepository = taskRepository;
 
   /// Starts a timer session for a timer-based task.
   ///
@@ -284,9 +280,6 @@ class TaskExecutionService {
     // 7. Get statistics
     final statistics = await _getTaskStatistics(task.userId);
 
-    // 8. Send completion notification
-    await _notificationService.notifyTaskCompleted(completedTask);
-
     return TaskCompletionResult(
       completedTask: completedTask,
       nextTask: nextTask,
@@ -319,16 +312,13 @@ class TaskExecutionService {
     // 3. Stop timer if active
     stopTimer(task.id);
 
-    // 4. Send skip notification
-    await _notificationService.notifyTaskSkipped(skippedTask);
-    AppLogger.d('Skip notification sent', tag: 'TaskExecutionService');
-
     return skippedTask;
   }
 
   /// Increment counter (for counter tasks)
   Future<TaskModel> incrementCount(
     TaskModel task, {
+    int? actualDurationMinutes,
     String? evaluationResult,
   }) async {
     // 1. Validate task type
@@ -346,10 +336,11 @@ class TaskExecutionService {
 
     // 4. Update progress
     // Note: The repository will auto-complete the task if it reaches the target count
-    // Pass evaluation result so it can be saved when task auto-completes
+    // Pass evaluation result and actual duration so they can be saved when task auto-completes
     final updatedTask = await _taskRepository.updateTaskProgress(
       task.id,
       newCount,
+      actualDurationMinutes: actualDurationMinutes,
       evaluationResult: evaluationResult,
     );
 

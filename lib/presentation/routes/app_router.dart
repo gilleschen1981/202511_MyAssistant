@@ -6,8 +6,10 @@ import 'package:myassistant/presentation/features/auth/screens/login_screen.dart
 import 'package:myassistant/presentation/features/home/screens/home_screen.dart';
 import 'package:myassistant/presentation/features/planning/screens/goal_detail_screen.dart';
 import 'package:myassistant/presentation/features/review/screens/plan_detail_review_screen.dart';
+import 'package:myassistant/presentation/features/tasks/screens/timer_screen.dart';
 import 'package:myassistant/presentation/providers/auth_state_provider.dart';
 import 'package:myassistant/di/providers/repository_providers.dart';
+import 'package:myassistant/data/models/task_model.dart';
 
 /// App route paths
 class AppRoutes {
@@ -16,6 +18,7 @@ class AppRoutes {
   static const home = '/';
   static const goalDetail = '/goal/:goalId';
   static const planReview = '/review/plan/:planId';
+  static const timer = '/timer';
 
   /// Helper methods to build route paths with parameters
   static String goalDetailPath(String goalId) => '/goal/$goalId';
@@ -84,6 +87,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final planId = state.pathParameters['planId']!;
           return PlanDetailReviewScreen(planId: planId);
+        },
+      ),
+      // Timer screen route
+      GoRoute(
+        path: AppRoutes.timer,
+        builder: (context, state) {
+          final task = state.extra as TaskModel;
+          return TimerScreen(task: task);
         },
       ),
     ],

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myassistant/core/theme/app_theme.dart';
-import 'package:myassistant/data/services/notification_service.dart';
 import 'package:myassistant/di/providers/database_provider.dart';
 import 'package:myassistant/presentation/routes/app_router.dart';
 import 'package:myassistant/presentation/providers/app_lifecycle_provider.dart';
@@ -9,11 +8,6 @@ import 'package:myassistant/presentation/providers/app_lifecycle_provider.dart';
 void main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize notifications for Android
-  final notificationService = NotificationService();
-  await notificationService.initialize();
-  await notificationService.requestPermissions();
 
   // Run the app with Riverpod
   runApp(

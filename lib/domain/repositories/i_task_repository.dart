@@ -68,6 +68,7 @@ abstract class ITaskRepository {
   Future<TaskModel> updateTaskProgress(
     String taskId,
     int currentCount, {
+    int? actualDurationMinutes,
     String? evaluationResult,
   });
 

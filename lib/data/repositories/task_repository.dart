@@ -196,6 +196,7 @@ class TaskRepository implements ITaskRepository {
   Future<TaskModel> updateTaskProgress(
     String taskId,
     int currentCount, {
+    int? actualDurationMinutes,
     String? evaluationResult,
   }) async {
     final task = await _taskDao.getTaskById(taskId);
@@ -222,6 +223,7 @@ class TaskRepository implements ITaskRepository {
     if (currentCount >= task.config.repeatCount!) {
       return await completeTask(
         taskId: taskId,
+        actualDurationMinutes: actualDurationMinutes,
         evaluationResult: evaluationResult,
         executionNote: 'Auto-completed after reaching target count',
       );

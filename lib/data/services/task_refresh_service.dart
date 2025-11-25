@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/data/services/task_generation_service.dart';
-import 'package:myassistant/data/services/notification_service.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
 import 'package:myassistant/domain/repositories/i_plan_repository.dart';
 import 'package:myassistant/core/utils/app_logger.dart';
@@ -24,7 +23,6 @@ class TaskRefreshService {
   final ITaskRepository _taskRepository;
   final IPlanRepository _planRepository;
   final TaskGenerationService _generationService;
-  final NotificationService _notificationService;
 
   Timer? _periodicTimer;
 
@@ -32,11 +30,9 @@ class TaskRefreshService {
     required ITaskRepository taskRepository,
     required IPlanRepository planRepository,
     required TaskGenerationService generationService,
-    required NotificationService notificationService,
   })  : _taskRepository = taskRepository,
         _planRepository = planRepository,
-        _generationService = generationService,
-        _notificationService = notificationService;
+        _generationService = generationService;
 
   /// Refresh all tasks for a user
   Future<RefreshResult> refreshAllTasks(String userId) async {
@@ -55,12 +51,6 @@ class TaskRefreshService {
       result.generatedCount = newTasks.length;
       result.newTasks = newTasks;
       AppLogger.i('Generated ${newTasks.length} new tasks', tag: 'TaskRefreshService');
-
-      // 3. Send notifications for new tasks
-      if (newTasks.isNotEmpty) {
-        AppLogger.d('Sending notifications for new tasks...', tag: 'TaskRefreshService');
-        await _notificationService.notifyNewTasks(newTasks);
-      }
 
       result.success = true;
       result.lastRefreshTime = DateTime.now();
@@ -191,11 +181,6 @@ class TaskRefreshService {
       result.success = true;
       result.lastRefreshTime = DateTime.now();
       AppLogger.i('Resume refresh completed: ${newTasks.length} new tasks, $expiredCount expired', tag: 'TaskRefreshService');
-
-      // Send notifications
-      if (newTasks.isNotEmpty) {
-        await _notificationService.notifyNewTasks(newTasks);
-      }
     } catch (e) {
       AppLogger.e('Error during resume refresh', tag: 'TaskRefreshService', error: e);
       result.success = false;

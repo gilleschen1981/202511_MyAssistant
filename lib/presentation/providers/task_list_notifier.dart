@@ -247,10 +247,15 @@ class TaskListNotifier extends _$TaskListNotifier {
   }
 
   /// Increment counter
-  Future<void> incrementCount(TaskModel task, {String? evaluationResult}) async {
+  Future<TaskModel> incrementCount(
+    TaskModel task, {
+    int? actualDurationMinutes,
+    String? evaluationResult,
+  }) async {
     try {
       final updatedTask = await _executionService.incrementCount(
         task,
+        actualDurationMinutes: actualDurationMinutes,
         evaluationResult: evaluationResult,
       );
 
@@ -278,10 +283,13 @@ class TaskListNotifier extends _$TaskListNotifier {
               : state.value!.completedTasks,
         ),
       );
+
+      return updatedTask;
     } catch (e) {
       state = AsyncValue.data(
         state.value!.copyWith(error: e.toString()),
       );
+      rethrow;
     }
   }
 

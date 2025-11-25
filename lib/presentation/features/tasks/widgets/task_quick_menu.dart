@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/presentation/providers/task_list_notifier.dart';
-import 'package:myassistant/presentation/features/tasks/widgets/task_execution_dialog.dart';
+import 'package:myassistant/presentation/routes/app_router.dart';
 import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Quick action menu for tasks
@@ -133,9 +134,11 @@ class _QuickMenuContent extends ConsumerWidget {
               label: '计时',
               onTap: () async {
                 Navigator.pop(context);
-                // Show execution dialog for timer-based tasks
-                final completed =
-                    await TaskExecutionDialog.show(context, task);
+                // Navigate to full-screen timer page
+                final completed = await context.push(
+                  AppRoutes.timer,
+                  extra: task,
+                );
                 if (completed == true && context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -220,10 +223,11 @@ class _QuickMenuContent extends ConsumerWidget {
       _showEvaluationMenuForCounter(context, task, ref);
     } else {
       // Just increment count (may auto-complete if reaching target)
-      await ref.read(taskListNotifierProvider.notifier).incrementCount(task);
+      final updatedTask = await ref.read(taskListNotifierProvider.notifier).incrementCount(task);
 
       if (context.mounted) {
-        if (willComplete) {
+        // Use the actual updated task status to determine the message
+        if (updatedTask.status == TaskStatus.completed) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('任务已完成！'),
@@ -231,7 +235,7 @@ class _QuickMenuContent extends ConsumerWidget {
             ),
           );
         } else {
-          final newCount = task.currentCount + 1;
+          final newCount = updatedTask.currentCount;
           final target = task.config.repeatCount!;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

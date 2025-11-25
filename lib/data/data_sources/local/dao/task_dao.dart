@@ -316,18 +316,6 @@ class TaskDao {
     return task.copyWith(currentCount: newCount);
   }
 
-  /// Get task execution history (all repeat executions)
-  Future<List<TaskModel>> getTaskExecutionHistory(String originalTaskId) async {
-    final db = await _database.database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      _tableTasks,
-      where: 'original_task_id = ? OR id = ?',
-      whereArgs: [originalTaskId, originalTaskId],
-      orderBy: 'created_at DESC',
-    );
-
-    return maps.map(_mapToTask).toList();
-  }
 
   /// Get task statistics
   Future<Map<String, dynamic>> getTaskStatistics(String userId) async {
