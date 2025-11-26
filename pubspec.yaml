@@ -78,6 +78,12 @@ dependencies:
   # Audio Player (for timer completion sound)
   audioplayers: ^6.1.0
 
+  # Vibration (for enhanced haptic feedback)
+  vibration: ^2.0.0
+
+  # Ringtone Player (for system notification sound)
+  flutter_ringtone_player: ^4.0.0
+
   # Security
   crypto: ^3.0.3
 

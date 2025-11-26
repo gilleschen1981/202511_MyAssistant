@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:async';
@@ -8,6 +7,8 @@ import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/presentation/providers/task_list_notifier.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:vibration/vibration.dart';
+import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 
 /// Full-screen timer page for timer tasks
 class TimerScreen extends ConsumerStatefulWidget {
@@ -80,22 +81,41 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
   }
 
   /// Play completion sound when timer finishes
+  /// Uses a three-layer fallback mechanism:
+  /// 1. Custom audio file (if available)
+  /// 2. System notification sound
+  /// 3. Enhanced vibration (always triggered for additional feedback)
   Future<void> _playCompletionSound() async {
+    bool soundPlayed = false;
+
+    // First layer: Try to play custom audio file
     try {
-      // Try to play the custom sound from assets
       await _audioPlayer.play(AssetSource('sounds/timer_complete.mp3'));
+      soundPlayed = true;
     } catch (e) {
-      // If audio file doesn't exist or playback fails, vibrate as fallback
+      // Audio file doesn't exist or playback failed, continue to next layer
+    }
+
+    // Second layer: Try to play system notification sound
+    if (!soundPlayed) {
       try {
-        await HapticFeedback.vibrate();
-        // Play a pattern: vibrate - pause - vibrate - pause - vibrate
-        await Future.delayed(const Duration(milliseconds: 200));
-        await HapticFeedback.vibrate();
-        await Future.delayed(const Duration(milliseconds: 200));
-        await HapticFeedback.vibrate();
-      } catch (vibrateError) {
-        // Ignore if vibration also fails
+        FlutterRingtonePlayer().playNotification();
+        soundPlayed = true;
+      } catch (e) {
+        // System notification sound failed, but continue
       }
+    }
+
+    // Third layer: Vibration feedback (always triggered regardless of sound)
+    try {
+      // Check if device has vibrator capability
+      final hasVibrator = await Vibration.hasVibrator();
+      if (hasVibrator == true) {
+        // Use strong vibration pattern: 500ms vibration
+        await Vibration.vibrate(duration: 500);
+      }
+    } catch (e) {
+      // Vibration failed, silently ignore
     }
   }
 
