@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:myassistant/data/models/task_model.dart';
+import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
 import 'package:myassistant/core/errors/exceptions.dart';
@@ -386,7 +387,20 @@ class TaskExecutionService {
       return null;
     }
 
-    // 2. Create new task with same configuration and same execution window
+    // 2. Create new task configuration
+    // If the task has repeatCount, reset it to null for re-execution
+    // This converts counter tasks to simple/timer/evaluation tasks
+    TaskConfiguration newConfig = task.config;
+    if (task.config.repeatCount != null) {
+      AppLogger.d('Resetting repeatCount for re-execution', tag: 'TaskExecutionService');
+      newConfig = TaskConfiguration(
+        durationMinutes: task.config.durationMinutes,
+        repeatCount: null,  // Reset to null - user wants to execute once
+        evaluationOptions: task.config.evaluationOptions,
+      );
+    }
+
+    // 3. Create new task with reset configuration and same execution window
     // This preserves the original deadline (e.g., tomorrow's tasks stay tomorrow)
     AppLogger.i('Creating new task instance for re-execution with original window', tag: 'TaskExecutionService');
     final newTask = await _taskRepository.createTask(
@@ -394,7 +408,7 @@ class TaskExecutionService {
       planId: task.planId,
       name: task.name,
       description: task.description,
-      config: task.config,
+      config: newConfig,  // Use the reset configuration
       windowStartTime: task.windowStartTime,
       windowEndTime: task.windowEndTime,
     );
