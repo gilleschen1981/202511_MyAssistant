@@ -140,10 +140,20 @@ class _EditGoalDialogState extends ConsumerState<EditGoalDialog> {
         _isLoading = false;
       });
 
+      // Extract error message from exception
+      String errorMessage = e.toString();
+      // Remove common exception prefixes for cleaner display
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring('Exception: '.length);
+      } else if (errorMessage.startsWith('ValidationException: ')) {
+        errorMessage = errorMessage.substring('ValidationException: '.length);
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('更新目标时出错：$e'),
+          content: Text(errorMessage),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4), // Give user time to read
         ),
       );
     }

@@ -29,6 +29,8 @@ class GoalDao {
     goalMap['updated_at'] = AppDatabase.dateTimeToTimestamp(goal.updatedAt);
     if (goal.deadline != null) {
       goalMap['deadline'] = AppDatabase.dateTimeToTimestamp(goal.deadline!);
+    } else {
+      goalMap['deadline'] = null;  // Explicitly set to null if no deadline
     }
     if (goal.deletedAt != null) {
       goalMap['deleted_at'] = AppDatabase.dateTimeToTimestamp(goal.deletedAt!);
@@ -217,6 +219,8 @@ class GoalDao {
     // Convert DateTime to timestamp
     if (goal.deadline != null) {
       goalMap['deadline'] = AppDatabase.dateTimeToTimestamp(goal.deadline!);
+    } else {
+      goalMap['deadline'] = null;  // Explicitly set to null when cleared
     }
     if (goal.deletedAt != null) {
       goalMap['deleted_at'] = AppDatabase.dateTimeToTimestamp(goal.deletedAt!);

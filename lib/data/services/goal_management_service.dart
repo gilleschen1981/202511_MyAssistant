@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:myassistant/data/models/goal_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/data/models/enums/priority.dart';
@@ -6,6 +7,7 @@ import 'package:myassistant/domain/repositories/i_plan_repository.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
 import 'package:myassistant/core/errors/exceptions.dart';
 import 'package:myassistant/core/utils/app_logger.dart';
+import 'package:myassistant/data/data_sources/local/database/app_database.dart';
 
 /// Goal statistics
 class GoalStatistics {
@@ -136,19 +138,83 @@ class GoalManagementService {
       throw const ValidationException('Deadline cannot be in the past');
     }
 
-    // 4. Create updated goal model
-    final updatedGoal = goal.copyWith(
-      title: title ?? goal.title,
-      description: description ?? goal.description,
-      deadline: deadline ?? goal.deadline,
-      priority: priority ?? goal.priority,
-      tags: tags ?? goal.tags,
-      successCriteria: successCriteria ?? goal.successCriteria,
-      updatedAt: DateTime.now(),
-    );
+    // 4. Check if deadline changed (need to cascade update plans)
+    final deadlineChanged = deadline != goal.deadline;
 
-    // 5. Update goal
-    return await _goalRepository.updateGoal(updatedGoal);
+    // 5. If deadline changed and not null, validate against all plans
+    if (deadlineChanged && deadline != null) {
+      final plans = await _planRepository.getGoalPlans(goalId);
+      for (final plan in plans) {
+        if (plan.status != PlanStatus.deleted && deadline.isBefore(plan.startDate)) {
+          throw ValidationException(
+            '目标截止日期不能早于计划"${plan.name}"的开始日期 (${plan.startDate.toString().substring(0, 10)})',
+          );
+        }
+      }
+    }
+
+    // 6. Use database transaction to update both goal and plans
+    final db = await AppDatabase.instance.database;
+
+    await db.transaction((txn) async {
+      // 6.1 Update goal
+      final goalMap = <String, dynamic>{
+        'title': title ?? goal.title,
+        'description': description ?? goal.description,
+        'priority': (priority ?? goal.priority).toDbString(),
+        'success_criteria': successCriteria ?? goal.successCriteria,
+        'updated_at': AppDatabase.getCurrentTimestamp(),
+      };
+
+      // Handle tags (must use JSON encoding for array)
+      if (tags != null) {
+        goalMap['tags'] = jsonEncode(tags);
+      }
+
+      // Handle deadline (fix bug: explicitly set null when cleared)
+      if (deadline != null) {
+        goalMap['deadline'] = AppDatabase.dateTimeToTimestamp(deadline);
+      } else if (deadlineChanged) {
+        goalMap['deadline'] = null;
+      }
+
+      await txn.update(
+        'goals',
+        goalMap,
+        where: 'id = ?',
+        whereArgs: [goalId],
+      );
+
+      // 6.2 If deadline changed, cascade update all plans
+      if (deadlineChanged) {
+        // Calculate new endDate for plans
+        // If deadline is null, set plans' endDate to 100 years in future
+        final newEndDate = deadline ?? DateTime.now().add(const Duration(days: 36500));
+
+        await txn.update(
+          'plans',
+          {
+            'end_date': AppDatabase.dateTimeToTimestamp(newEndDate),
+            'updated_at': AppDatabase.getCurrentTimestamp(),
+          },
+          where: 'goal_id = ? AND status != ?',
+          whereArgs: [goalId, PlanStatus.deleted.toDbString()],
+        );
+
+        AppLogger.i(
+          'Cascade updated plans for goal $goalId with new endDate: $newEndDate',
+          tag: 'GoalManagementService',
+        );
+      }
+    });
+
+    // 7. Re-query and return updated goal
+    final updatedGoal = await _goalRepository.getGoalById(goalId);
+    if (updatedGoal == null) {
+      throw const NotFoundException('Goal not found after update');
+    }
+
+    return updatedGoal;
   }
 
   /// Archive goal (soft delete)
