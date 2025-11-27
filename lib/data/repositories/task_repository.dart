@@ -233,6 +233,27 @@ class TaskRepository implements ITaskRepository {
   }
 
   @override
+  Future<TaskModel> updateTaskStatus({
+    required String taskId,
+    required TaskStatus status,
+    bool clearExecutionData = false,
+    bool clearSkipData = false,
+  }) async {
+    final result = await _taskDao.updateTaskStatus(
+      taskId,
+      status,
+      clearExecutionData: clearExecutionData,
+      clearSkipData: clearSkipData,
+    );
+
+    if (result == null) {
+      throw Exception('Failed to update task status');
+    }
+
+    return result;
+  }
+
+  @override
   Future<Map<String, dynamic>> getTaskStatistics(String userId) async {
     return await _taskDao.getTaskStatistics(userId);
   }

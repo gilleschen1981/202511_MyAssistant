@@ -72,6 +72,15 @@ abstract class ITaskRepository {
     String? evaluationResult,
   });
 
+  /// Update task status (for undo operations)
+  /// Can clear execution data or skip data when reverting
+  Future<TaskModel> updateTaskStatus({
+    required String taskId,
+    required TaskStatus status,
+    bool clearExecutionData = false,
+    bool clearSkipData = false,
+  });
+
   /// Get task statistics
   Future<Map<String, dynamic>> getTaskStatistics(String userId);
 

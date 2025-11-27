@@ -12,6 +12,7 @@ import 'package:myassistant/domain/repositories/i_task_repository.dart';
 import 'package:myassistant/di/providers/repository_providers.dart';
 import 'package:myassistant/di/providers/service_providers.dart';
 import 'package:myassistant/presentation/providers/auth_state_provider.dart';
+import 'package:myassistant/presentation/models/undo_operation.dart';
 
 part 'task_list_notifier.freezed.dart';
 part 'task_list_notifier.g.dart';
@@ -28,6 +29,7 @@ class TaskListState with _$TaskListState {
     required Map<String, TimerSession> activeSessions,
     @Default(TaskFilter.all) TaskFilter currentFilter,
     String? error,
+    UndoOperation? lastOperation,  // Track last operation for undo
   }) = _TaskListState;
 
   factory TaskListState.initial() => const TaskListState(
@@ -101,6 +103,9 @@ class TaskListNotifier extends _$TaskListNotifier {
     final user = ref.read(currentUserProvider);
     if (user == null) return;
 
+    // Save lastOperation before loading
+    final savedOperation = state.valueOrNull?.lastOperation;
+
     // Set loading state
     state = const AsyncValue.loading();
 
@@ -108,9 +113,9 @@ class TaskListNotifier extends _$TaskListNotifier {
       // Refresh expired and generate new tasks
       await _refreshService.refreshAllTasks(user.id);
 
-      // Reload tasks
+      // Reload tasks (preserve lastOperation)
       final newState = await _loadTasks();
-      state = AsyncValue.data(newState);
+      state = AsyncValue.data(newState.copyWith(lastOperation: savedOperation));
     } catch (e, stack) {
       // Keep existing data but add error
       state = AsyncValue.error(e, stack);
@@ -124,7 +129,15 @@ class TaskListNotifier extends _$TaskListNotifier {
     String? evaluationResult,
     String? executionNote,
   }) async {
-    // Optimistically update UI
+    // Record operation for undo
+    final operation = UndoOperation(
+      type: UndoOperationType.completeTask,
+      taskId: task.id,
+      taskSnapshot: task,
+      timestamp: DateTime.now(),
+    );
+
+    // Optimistically update UI (keep lastOperation)
     state = AsyncValue.data(
       state.value!.copyWith(
         activeTasks: state.value!.activeTasks
@@ -134,6 +147,7 @@ class TaskListNotifier extends _$TaskListNotifier {
           ...state.value!.completedTasks,
           task.copyWith(status: TaskStatus.completed),
         ],
+        lastOperation: operation,
       ),
     );
 
@@ -148,17 +162,18 @@ class TaskListNotifier extends _$TaskListNotifier {
       // Reload to get accurate state including any new tasks
       final newState = await _loadTasks();
 
-      // Add next task if generated
+      // Add next task if generated (keep lastOperation)
       if (result.nextTask != null) {
         state = AsyncValue.data(
           newState.copyWith(
             allTasks: [...newState.allTasks, result.nextTask!],
             todayTasks: [...newState.todayTasks, result.nextTask!],
             activeTasks: [...newState.activeTasks, result.nextTask!],
+            lastOperation: operation,
           ),
         );
       } else {
-        state = AsyncValue.data(newState);
+        state = AsyncValue.data(newState.copyWith(lastOperation: operation));
       }
 
       // Reapply current filter
@@ -177,12 +192,21 @@ class TaskListNotifier extends _$TaskListNotifier {
     required TaskModel task,
     String? skipReason,
   }) async {
-    // Optimistically update UI
+    // Record operation for undo
+    final operation = UndoOperation(
+      type: UndoOperationType.skipTask,
+      taskId: task.id,
+      taskSnapshot: task,
+      timestamp: DateTime.now(),
+    );
+
+    // Optimistically update UI (keep lastOperation)
     state = AsyncValue.data(
       state.value!.copyWith(
         activeTasks: state.value!.activeTasks
             .where((t) => t.id != task.id)
             .toList(),
+        lastOperation: operation,
       ),
     );
 
@@ -192,9 +216,9 @@ class TaskListNotifier extends _$TaskListNotifier {
         skipReason: skipReason,
       );
 
-      // Reload tasks to reflect changes
+      // Reload tasks to reflect changes (keep lastOperation)
       final newState = await _loadTasks();
-      state = AsyncValue.data(newState);
+      state = AsyncValue.data(newState.copyWith(lastOperation: operation));
 
       // Reapply current filter
       _reapplyFilter();
@@ -263,6 +287,14 @@ class TaskListNotifier extends _$TaskListNotifier {
     int? actualDurationMinutes,
     String? evaluationResult,
   }) async {
+    // Record operation for undo
+    final operation = UndoOperation(
+      type: UndoOperationType.incrementCount,
+      taskId: task.id,
+      taskSnapshot: task,
+      timestamp: DateTime.now(),
+    );
+
     try {
       final updatedTask = await _executionService.incrementCount(
         task,
@@ -273,7 +305,7 @@ class TaskListNotifier extends _$TaskListNotifier {
       // Check if task is now completed
       final isCompleted = updatedTask.status == TaskStatus.completed;
 
-      // Update task in list
+      // Update task in list (keep lastOperation)
       state = AsyncValue.data(
         state.value!.copyWith(
           allTasks: state.value!.allTasks.map((t) {
@@ -292,6 +324,7 @@ class TaskListNotifier extends _$TaskListNotifier {
           completedTasks: isCompleted
               ? [...state.value!.completedTasks, updatedTask]
               : state.value!.completedTasks,
+          lastOperation: operation,
         ),
       );
 
@@ -306,10 +339,18 @@ class TaskListNotifier extends _$TaskListNotifier {
 
   /// Decrement counter
   Future<void> decrementCount(TaskModel task) async {
+    // Record operation for undo
+    final operation = UndoOperation(
+      type: UndoOperationType.decrementCount,
+      taskId: task.id,
+      taskSnapshot: task,
+      timestamp: DateTime.now(),
+    );
+
     try {
       final updatedTask = await _executionService.decrementCount(task);
 
-      // Update task in list
+      // Update task in list (keep lastOperation)
       state = AsyncValue.data(
         state.value!.copyWith(
           allTasks: state.value!.allTasks.map((t) {
@@ -321,6 +362,7 @@ class TaskListNotifier extends _$TaskListNotifier {
           activeTasks: state.value!.activeTasks.map((t) {
             return t.id == updatedTask.id ? updatedTask : t;
           }).toList(),
+          lastOperation: operation,
         ),
       );
     } catch (e) {
@@ -341,14 +383,27 @@ class TaskListNotifier extends _$TaskListNotifier {
       final newTask = await _executionService.reExecuteTask(task);
 
       if (newTask != null) {
-        // Add new task to lists
+        // Record operation for undo (with newTaskId in metadata)
+        final operation = UndoOperation(
+          type: UndoOperationType.reExecuteTask,
+          taskId: task.id,
+          taskSnapshot: task,
+          timestamp: DateTime.now(),
+          metadata: {'newTaskId': newTask.id},
+        );
+
+        // Add new task to lists (keep lastOperation)
         state = AsyncValue.data(
           state.value!.copyWith(
             allTasks: [...state.value!.allTasks, newTask],
             todayTasks: [...state.value!.todayTasks, newTask],
             activeTasks: [...state.value!.activeTasks, newTask],
+            lastOperation: operation,
           ),
         );
+
+        // Reapply current filter to update filtered tasks
+        _reapplyFilter();
       }
 
       return newTask;
@@ -402,6 +457,70 @@ class TaskListNotifier extends _$TaskListNotifier {
     state = AsyncValue.data(
       currentState.copyWith(filteredTasks: filteredTasks),
     );
+  }
+
+  /// Undo the last operation
+  Future<void> undoLastOperation() async {
+    final operation = state.value?.lastOperation;
+    if (operation == null) return;
+
+    try {
+      switch (operation.type) {
+        case UndoOperationType.completeTask:
+        case UndoOperationType.skipTask:
+          // Revert status to active
+          await _taskRepository.updateTaskStatus(
+            taskId: operation.taskId,
+            status: TaskStatus.active,
+            clearExecutionData: operation.type == UndoOperationType.completeTask,
+            clearSkipData: operation.type == UndoOperationType.skipTask,
+          );
+          break;
+
+        case UndoOperationType.incrementCount:
+        case UndoOperationType.decrementCount:
+          // Get current task to check if it was auto-completed
+          final currentTask = await _taskRepository.getTaskById(operation.taskId);
+
+          // Restore previous count from snapshot
+          await _taskRepository.updateTaskProgress(
+            operation.taskId,
+            operation.taskSnapshot.currentCount,
+          );
+
+          // If task was auto-completed by increment, revert to active
+          if (currentTask?.status == TaskStatus.completed) {
+            await _taskRepository.updateTaskStatus(
+              taskId: operation.taskId,
+              status: TaskStatus.active,
+              clearExecutionData: true,
+            );
+          }
+          break;
+
+        case UndoOperationType.reExecuteTask:
+          // Delete the newly created task
+          final newTaskId = operation.metadata?['newTaskId'] as String?;
+          if (newTaskId != null) {
+            await _taskRepository.deleteTask(newTaskId);
+          }
+          break;
+      }
+
+      // Clear the operation and reload tasks
+      final newState = await _loadTasks();
+      state = AsyncValue.data(
+        newState.copyWith(lastOperation: null),
+      );
+
+      // Reapply filter
+      _reapplyFilter();
+    } catch (e) {
+      // Keep operation on error
+      state = AsyncValue.data(
+        state.value!.copyWith(error: e.toString()),
+      );
+    }
   }
 }
 

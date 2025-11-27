@@ -26,6 +26,7 @@ mixin _$TaskListState {
       throw _privateConstructorUsedError;
   TaskFilter get currentFilter => throw _privateConstructorUsedError;
   String? get error => throw _privateConstructorUsedError;
+  UndoOperation? get lastOperation => throw _privateConstructorUsedError;
 
   /// Create a copy of TaskListState
   /// with the given fields replaced by the non-null parameter values.
@@ -50,6 +51,7 @@ abstract class $TaskListStateCopyWith<$Res> {
     Map<String, TimerSession> activeSessions,
     TaskFilter currentFilter,
     String? error,
+    UndoOperation? lastOperation,
   });
 }
 
@@ -76,6 +78,7 @@ class _$TaskListStateCopyWithImpl<$Res, $Val extends TaskListState>
     Object? activeSessions = null,
     Object? currentFilter = null,
     Object? error = freezed,
+    Object? lastOperation = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -111,6 +114,10 @@ class _$TaskListStateCopyWithImpl<$Res, $Val extends TaskListState>
                 ? _value.error
                 : error // ignore: cast_nullable_to_non_nullable
                       as String?,
+            lastOperation: freezed == lastOperation
+                ? _value.lastOperation
+                : lastOperation // ignore: cast_nullable_to_non_nullable
+                      as UndoOperation?,
           )
           as $Val,
     );
@@ -135,6 +142,7 @@ abstract class _$$TaskListStateImplCopyWith<$Res>
     Map<String, TimerSession> activeSessions,
     TaskFilter currentFilter,
     String? error,
+    UndoOperation? lastOperation,
   });
 }
 
@@ -160,6 +168,7 @@ class __$$TaskListStateImplCopyWithImpl<$Res>
     Object? activeSessions = null,
     Object? currentFilter = null,
     Object? error = freezed,
+    Object? lastOperation = freezed,
   }) {
     return _then(
       _$TaskListStateImpl(
@@ -195,6 +204,10 @@ class __$$TaskListStateImplCopyWithImpl<$Res>
             ? _value.error
             : error // ignore: cast_nullable_to_non_nullable
                   as String?,
+        lastOperation: freezed == lastOperation
+            ? _value.lastOperation
+            : lastOperation // ignore: cast_nullable_to_non_nullable
+                  as UndoOperation?,
       ),
     );
   }
@@ -212,6 +225,7 @@ class _$TaskListStateImpl implements _TaskListState {
     required final Map<String, TimerSession> activeSessions,
     this.currentFilter = TaskFilter.all,
     this.error,
+    this.lastOperation,
   }) : _allTasks = allTasks,
        _todayTasks = todayTasks,
        _activeTasks = activeTasks,
@@ -272,10 +286,12 @@ class _$TaskListStateImpl implements _TaskListState {
   final TaskFilter currentFilter;
   @override
   final String? error;
+  @override
+  final UndoOperation? lastOperation;
 
   @override
   String toString() {
-    return 'TaskListState(allTasks: $allTasks, todayTasks: $todayTasks, activeTasks: $activeTasks, completedTasks: $completedTasks, filteredTasks: $filteredTasks, activeSessions: $activeSessions, currentFilter: $currentFilter, error: $error)';
+    return 'TaskListState(allTasks: $allTasks, todayTasks: $todayTasks, activeTasks: $activeTasks, completedTasks: $completedTasks, filteredTasks: $filteredTasks, activeSessions: $activeSessions, currentFilter: $currentFilter, error: $error, lastOperation: $lastOperation)';
   }
 
   @override
@@ -306,7 +322,9 @@ class _$TaskListStateImpl implements _TaskListState {
             ) &&
             (identical(other.currentFilter, currentFilter) ||
                 other.currentFilter == currentFilter) &&
-            (identical(other.error, error) || other.error == error));
+            (identical(other.error, error) || other.error == error) &&
+            (identical(other.lastOperation, lastOperation) ||
+                other.lastOperation == lastOperation));
   }
 
   @override
@@ -320,6 +338,7 @@ class _$TaskListStateImpl implements _TaskListState {
     const DeepCollectionEquality().hash(_activeSessions),
     currentFilter,
     error,
+    lastOperation,
   );
 
   /// Create a copy of TaskListState
@@ -341,6 +360,7 @@ abstract class _TaskListState implements TaskListState {
     required final Map<String, TimerSession> activeSessions,
     final TaskFilter currentFilter,
     final String? error,
+    final UndoOperation? lastOperation,
   }) = _$TaskListStateImpl;
 
   @override
@@ -359,6 +379,8 @@ abstract class _TaskListState implements TaskListState {
   TaskFilter get currentFilter;
   @override
   String? get error;
+  @override
+  UndoOperation? get lastOperation;
 
   /// Create a copy of TaskListState
   /// with the given fields replaced by the non-null parameter values.

@@ -16,15 +16,13 @@ class TaskFilterBar extends ConsumerWidget {
       data: (state) {
         final currentFilter = state.currentFilter;
 
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: TaskFilter.values.map((filter) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: TaskFilter.values.map((filter) {
                 final isSelected = currentFilter == filter;
                 return Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.only(right: 6),
                   child: FilterChip(
                     label: Text(filter.label),
                     selected: isSelected,
@@ -42,7 +40,11 @@ class TaskFilterBar extends ConsumerWidget {
                           ? Theme.of(context).colorScheme.onPrimaryContainer
                           : Theme.of(context).colorScheme.onSurface,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      fontSize: 13,
                     ),
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                    visualDensity: VisualDensity.compact,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                       side: BorderSide(
@@ -55,7 +57,6 @@ class TaskFilterBar extends ConsumerWidget {
                   ),
                 );
               }).toList(),
-            ),
           ),
         );
       },

@@ -316,6 +316,54 @@ class TaskDao {
     return task.copyWith(currentCount: newCount);
   }
 
+  /// Update task status (for undo operations)
+  /// Can optionally clear execution data or skip data when reverting
+  Future<TaskModel?> updateTaskStatus(
+    String taskId,
+    TaskStatus newStatus, {
+    bool clearExecutionData = false,
+    bool clearSkipData = false,
+  }) async {
+    final db = await _database.database;
+    final task = await getTaskById(taskId);
+    if (task == null) return null;
+
+    // Build update map
+    final Map<String, dynamic> updates = {
+      'status': newStatus.toDbString(),
+    };
+
+    // Clear execution data if requested (for reverting complete)
+    if (clearExecutionData) {
+      updates['actual_duration_minutes'] = null;
+      updates['evaluation_result'] = null;
+      updates['execution_note'] = null;
+      updates['completed_at'] = null;
+    }
+
+    // Clear skip data if requested (for reverting skip)
+    if (clearSkipData) {
+      updates['execution_note'] = null;  // Skip reason is stored in execution_note
+      updates['skipped_at'] = null;
+    }
+
+    await db.update(
+      _tableTasks,
+      updates,
+      where: 'id = ?',
+      whereArgs: [taskId],
+    );
+
+    // Return updated task
+    return task.copyWith(
+      status: newStatus,
+      actualDurationMinutes: clearExecutionData ? null : task.actualDurationMinutes,
+      evaluationResult: clearExecutionData ? null : task.evaluationResult,
+      executionNote: (clearExecutionData || clearSkipData) ? null : task.executionNote,
+      completedAt: clearExecutionData ? null : task.completedAt,
+      skippedAt: clearSkipData ? null : task.skippedAt,
+    );
+  }
 
   /// Get task statistics
   Future<Map<String, dynamic>> getTaskStatistics(String userId) async {

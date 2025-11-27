@@ -60,7 +60,19 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     if (displayTasks.isEmpty) {
       return Column(
         children: [
-          const TaskFilterBar(),
+          // Undo button and Filter bar row
+          Container(
+            padding: const EdgeInsets.fromLTRB(4, 8, 8, 8),
+            child: Row(
+              children: [
+                // Undo button
+                _buildUndoButton(taskState),
+                const SizedBox(width: 4),
+                // Filter bar
+                const Expanded(child: TaskFilterBar()),
+              ],
+            ),
+          ),
           Expanded(child: _buildEmptyState()),
         ],
       );
@@ -75,8 +87,19 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
       },
       child: Column(
         children: [
-          // Filter bar
-          const TaskFilterBar(),
+          // Undo button and Filter bar row
+          Container(
+            padding: const EdgeInsets.fromLTRB(4, 8, 8, 8),
+            child: Row(
+              children: [
+                // Undo button
+                _buildUndoButton(taskState),
+                const SizedBox(width: 4),
+                // Filter bar
+                const Expanded(child: TaskFilterBar()),
+              ],
+            ),
+          ),
           // Task list
           Expanded(
             child: ListView(
@@ -208,6 +231,40 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildUndoButton(TaskListState taskState) {
+    final hasUndoOperation = taskState.lastOperation != null;
+
+    return IconButton(
+      icon: const Icon(Icons.undo, size: 20),
+      iconSize: 20,
+      padding: const EdgeInsets.all(8),
+      constraints: const BoxConstraints(
+        minWidth: 36,
+        minHeight: 36,
+      ),
+      onPressed: hasUndoOperation
+        ? () async {
+            final operation = taskState.lastOperation;
+            await ref.read(taskListNotifierProvider.notifier).undoLastOperation();
+            // Show undo feedback
+            if (mounted && operation != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(operation.description),
+                  backgroundColor: Colors.blue,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          }
+        : null,
+      color: hasUndoOperation
+        ? Theme.of(context).colorScheme.primary
+        : Colors.grey,
+      tooltip: '撤销',
     );
   }
 
