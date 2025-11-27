@@ -509,80 +509,110 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
 ### 6.1 任务列表状态管理
 
 ```dart
-// lib/presentation/features/tasks/providers/task_list_provider.dart
+// lib/presentation/providers/task_list_notifier.dart
 
 /// 任务列表状态
 @freezed
 class TaskListState with _$TaskListState {
   const factory TaskListState({
-    @Default([]) List<Task> tasks,
-    @Default([]) List<Task> filteredTasks,
-    @Default(TaskFilter.all) TaskFilter filter,
-    @Default(TaskSortBy.time) TaskSortBy sortBy,
-    @Default(false) bool isLoading,
-    @Default(false) bool isRefreshing,
+    required List<TaskModel> allTasks,
+    required List<TaskModel> todayTasks,
+    required List<TaskModel> activeTasks,
+    required List<TaskModel> completedTasks,
+    required List<TaskModel> filteredTasks,
+    required Map<String, TimerSession> activeSessions,
+    @Default(TaskFilter.all) TaskFilter currentFilter,
     String? error,
-    DateTime? lastRefreshTime,
   }) = _TaskListState;
+
+  factory TaskListState.initial() => const TaskListState(
+        allTasks: [],
+        todayTasks: [],
+        activeTasks: [],
+        completedTasks: [],
+        filteredTasks: [],
+        activeSessions: {},
+      );
 }
+```
+
+```dart
+// lib/data/models/enums/task_filter.dart
 
 /// 任务过滤器
+/// Task filter options for filtering task list
 enum TaskFilter {
-  all,        // 所有任务
-  active,     // 待执行
-  completed,  // 已完成
-  skipped,    // 已跳过
-  today,      // 今日任务
-  upcoming,   // 即将到期
-}
+  /// All tasks regardless of status
+  all('全部'),
 
-/// 排序方式
-enum TaskSortBy {
-  time,       // 按时间窗口
-  priority,   // 按优先级
-  name,       // 按名称
+  /// Only active tasks (pending execution)
+  active('待执行'),
+
+  /// Only completed tasks
+  completed('已完成'),
+
+  /// Only skipped tasks
+  skipped('已跳过');
+
+  const TaskFilter(this.label);
+
+  /// Display label for the filter
+  final String label;
 }
 
 /// 任务列表Provider
 @riverpod
 class TaskListNotifier extends _$TaskListNotifier {
-  late TaskRepository _taskRepository;
-  late TaskRefreshService _refreshService;
+  late ITaskRepository _taskRepository;
   late TaskExecutionService _executionService;
+  late TaskRefreshService _refreshService;
 
   @override
   FutureOr<TaskListState> build() async {
-    // 初始化依赖
+    // Get dependencies
     _taskRepository = ref.watch(taskRepositoryProvider);
-    _refreshService = ref.watch(taskRefreshServiceProvider);
     _executionService = ref.watch(taskExecutionServiceProvider);
+    _refreshService = ref.watch(taskRefreshServiceProvider);
 
-    // 加载初始数据
-    await _loadTasks();
-
-    // 设置定时刷新
-    _setupPeriodicRefresh();
-
-    return const TaskListState();
+    // Load initial data
+    return await _loadTasks();
   }
 
   /// 加载任务列表
-  Future<void> _loadTasks() async {
-    state = const AsyncValue.loading();
+  Future<TaskListState> _loadTasks() async {
+    final user = ref.read(currentUserProvider);
+    if (user == null) {
+      return TaskListState.initial();
+    }
 
     try {
-      final userId = ref.read(currentUserProvider)?.id ?? 'default_user';
-      final tasks = await _taskRepository.getActiveTasksByUserId(userId);
+      // Get today's tasks
+      final todayTasks = await _taskRepository.getTodayTasks(user.id);
 
-      state = AsyncValue.data(
-        TaskListState(
-          tasks: tasks,
-          filteredTasks: _applyFilter(tasks, TaskFilter.all),
-          lastRefreshTime: DateTime.now(),
-        ),
+      // Filter by status
+      final activeTasks = todayTasks
+          .where((t) => t.status == TaskStatus.active)
+          .toList();
+      final completedTasks = todayTasks
+          .where((t) => t.status == TaskStatus.completed)
+          .toList();
+
+      // Get active timer sessions
+      final activeSessions = _executionService.getActiveSessions();
+
+      return TaskListState(
+        allTasks: todayTasks,
+        todayTasks: todayTasks,
+        activeTasks: activeTasks,
+        completedTasks: completedTasks,
+        filteredTasks: todayTasks, // Initially show all tasks
+        activeSessions: activeSessions,
       );
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+    } catch (e) {
+      // Return state with error
+      return TaskListState.initial().copyWith(
+        error: e.toString(),
+      );
     }
   }
 
@@ -692,35 +722,24 @@ class TaskListNotifier extends _$TaskListNotifier {
   }
 
   /// 设置过滤器
+  /// Set filter and update filtered tasks
   void setFilter(TaskFilter filter) {
     if (state.valueOrNull == null) return;
 
-    final filteredTasks = _applyFilter(state.value!.tasks, filter);
+    final currentState = state.value!;
+    final filteredTasks = _applyFilter(currentState.todayTasks, filter);
 
     state = AsyncValue.data(
-      state.value!.copyWith(
-        filter: filter,
+      currentState.copyWith(
+        currentFilter: filter,
         filteredTasks: filteredTasks,
       ),
     );
   }
 
-  /// 设置排序
-  void setSortBy(TaskSortBy sortBy) {
-    if (state.valueOrNull == null) return;
-
-    final sortedTasks = _sortTasks(state.value!.filteredTasks, sortBy);
-
-    state = AsyncValue.data(
-      state.value!.copyWith(
-        sortBy: sortBy,
-        filteredTasks: sortedTasks,
-      ),
-    );
-  }
-
   /// 应用过滤器
-  List<Task> _applyFilter(List<Task> tasks, TaskFilter filter) {
+  /// Apply filter to task list
+  List<TaskModel> _applyFilter(List<TaskModel> tasks, TaskFilter filter) {
     switch (filter) {
       case TaskFilter.all:
         return tasks;
@@ -730,55 +749,22 @@ class TaskListNotifier extends _$TaskListNotifier {
         return tasks.where((t) => t.status == TaskStatus.completed).toList();
       case TaskFilter.skipped:
         return tasks.where((t) => t.status == TaskStatus.skipped).toList();
-      case TaskFilter.today:
-        final today = DateTime.now();
-        return tasks.where((t) {
-          return t.windowStartTime.day == today.day &&
-                 t.windowStartTime.month == today.month &&
-                 t.windowStartTime.year == today.year;
-        }).toList();
-      case TaskFilter.upcoming:
-        final now = DateTime.now();
-        final tomorrow = now.add(Duration(days: 1));
-        return tasks.where((t) {
-          return t.windowEndTime.isAfter(now) &&
-                 t.windowEndTime.isBefore(tomorrow);
-        }).toList();
     }
   }
 
-  /// 排序任务
-  List<Task> _sortTasks(List<Task> tasks, TaskSortBy sortBy) {
-    final sorted = List<Task>.from(tasks);
-
-    switch (sortBy) {
-      case TaskSortBy.time:
-        sorted.sort((a, b) => a.windowStartTime.compareTo(b.windowStartTime));
-        break;
-      case TaskSortBy.priority:
-        // 需要关联计划和目标获取优先级
-        // 这里简化处理
-        sorted.sort((a, b) => a.name.compareTo(b.name));
-        break;
-      case TaskSortBy.name:
-        sorted.sort((a, b) => a.name.compareTo(b.name));
-        break;
-    }
-
-    return sorted;
-  }
-
-  /// 应用当前过滤器
-  void _applyCurrentFilter() {
+  /// 重新应用当前过滤器
+  /// Reapply current filter after task list changes
+  void _reapplyFilter() {
     if (state.valueOrNull == null) return;
 
+    final currentState = state.value!;
     final filteredTasks = _applyFilter(
-      state.value!.tasks,
-      state.value!.filter,
+      currentState.todayTasks,
+      currentState.currentFilter,
     );
 
     state = AsyncValue.data(
-      state.value!.copyWith(filteredTasks: filteredTasks),
+      currentState.copyWith(filteredTasks: filteredTasks),
     );
   }
 

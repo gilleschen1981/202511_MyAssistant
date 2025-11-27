@@ -21,8 +21,10 @@ mixin _$TaskListState {
   List<TaskModel> get todayTasks => throw _privateConstructorUsedError;
   List<TaskModel> get activeTasks => throw _privateConstructorUsedError;
   List<TaskModel> get completedTasks => throw _privateConstructorUsedError;
+  List<TaskModel> get filteredTasks => throw _privateConstructorUsedError;
   Map<String, TimerSession> get activeSessions =>
       throw _privateConstructorUsedError;
+  TaskFilter get currentFilter => throw _privateConstructorUsedError;
   String? get error => throw _privateConstructorUsedError;
 
   /// Create a copy of TaskListState
@@ -44,7 +46,9 @@ abstract class $TaskListStateCopyWith<$Res> {
     List<TaskModel> todayTasks,
     List<TaskModel> activeTasks,
     List<TaskModel> completedTasks,
+    List<TaskModel> filteredTasks,
     Map<String, TimerSession> activeSessions,
+    TaskFilter currentFilter,
     String? error,
   });
 }
@@ -68,7 +72,9 @@ class _$TaskListStateCopyWithImpl<$Res, $Val extends TaskListState>
     Object? todayTasks = null,
     Object? activeTasks = null,
     Object? completedTasks = null,
+    Object? filteredTasks = null,
     Object? activeSessions = null,
+    Object? currentFilter = null,
     Object? error = freezed,
   }) {
     return _then(
@@ -89,10 +95,18 @@ class _$TaskListStateCopyWithImpl<$Res, $Val extends TaskListState>
                 ? _value.completedTasks
                 : completedTasks // ignore: cast_nullable_to_non_nullable
                       as List<TaskModel>,
+            filteredTasks: null == filteredTasks
+                ? _value.filteredTasks
+                : filteredTasks // ignore: cast_nullable_to_non_nullable
+                      as List<TaskModel>,
             activeSessions: null == activeSessions
                 ? _value.activeSessions
                 : activeSessions // ignore: cast_nullable_to_non_nullable
                       as Map<String, TimerSession>,
+            currentFilter: null == currentFilter
+                ? _value.currentFilter
+                : currentFilter // ignore: cast_nullable_to_non_nullable
+                      as TaskFilter,
             error: freezed == error
                 ? _value.error
                 : error // ignore: cast_nullable_to_non_nullable
@@ -117,7 +131,9 @@ abstract class _$$TaskListStateImplCopyWith<$Res>
     List<TaskModel> todayTasks,
     List<TaskModel> activeTasks,
     List<TaskModel> completedTasks,
+    List<TaskModel> filteredTasks,
     Map<String, TimerSession> activeSessions,
+    TaskFilter currentFilter,
     String? error,
   });
 }
@@ -140,7 +156,9 @@ class __$$TaskListStateImplCopyWithImpl<$Res>
     Object? todayTasks = null,
     Object? activeTasks = null,
     Object? completedTasks = null,
+    Object? filteredTasks = null,
     Object? activeSessions = null,
+    Object? currentFilter = null,
     Object? error = freezed,
   }) {
     return _then(
@@ -161,10 +179,18 @@ class __$$TaskListStateImplCopyWithImpl<$Res>
             ? _value._completedTasks
             : completedTasks // ignore: cast_nullable_to_non_nullable
                   as List<TaskModel>,
+        filteredTasks: null == filteredTasks
+            ? _value._filteredTasks
+            : filteredTasks // ignore: cast_nullable_to_non_nullable
+                  as List<TaskModel>,
         activeSessions: null == activeSessions
             ? _value._activeSessions
             : activeSessions // ignore: cast_nullable_to_non_nullable
                   as Map<String, TimerSession>,
+        currentFilter: null == currentFilter
+            ? _value.currentFilter
+            : currentFilter // ignore: cast_nullable_to_non_nullable
+                  as TaskFilter,
         error: freezed == error
             ? _value.error
             : error // ignore: cast_nullable_to_non_nullable
@@ -182,12 +208,15 @@ class _$TaskListStateImpl implements _TaskListState {
     required final List<TaskModel> todayTasks,
     required final List<TaskModel> activeTasks,
     required final List<TaskModel> completedTasks,
+    required final List<TaskModel> filteredTasks,
     required final Map<String, TimerSession> activeSessions,
+    this.currentFilter = TaskFilter.all,
     this.error,
   }) : _allTasks = allTasks,
        _todayTasks = todayTasks,
        _activeTasks = activeTasks,
        _completedTasks = completedTasks,
+       _filteredTasks = filteredTasks,
        _activeSessions = activeSessions;
 
   final List<TaskModel> _allTasks;
@@ -222,6 +251,14 @@ class _$TaskListStateImpl implements _TaskListState {
     return EqualUnmodifiableListView(_completedTasks);
   }
 
+  final List<TaskModel> _filteredTasks;
+  @override
+  List<TaskModel> get filteredTasks {
+    if (_filteredTasks is EqualUnmodifiableListView) return _filteredTasks;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_filteredTasks);
+  }
+
   final Map<String, TimerSession> _activeSessions;
   @override
   Map<String, TimerSession> get activeSessions {
@@ -231,11 +268,14 @@ class _$TaskListStateImpl implements _TaskListState {
   }
 
   @override
+  @JsonKey()
+  final TaskFilter currentFilter;
+  @override
   final String? error;
 
   @override
   String toString() {
-    return 'TaskListState(allTasks: $allTasks, todayTasks: $todayTasks, activeTasks: $activeTasks, completedTasks: $completedTasks, activeSessions: $activeSessions, error: $error)';
+    return 'TaskListState(allTasks: $allTasks, todayTasks: $todayTasks, activeTasks: $activeTasks, completedTasks: $completedTasks, filteredTasks: $filteredTasks, activeSessions: $activeSessions, currentFilter: $currentFilter, error: $error)';
   }
 
   @override
@@ -257,9 +297,15 @@ class _$TaskListStateImpl implements _TaskListState {
               _completedTasks,
             ) &&
             const DeepCollectionEquality().equals(
+              other._filteredTasks,
+              _filteredTasks,
+            ) &&
+            const DeepCollectionEquality().equals(
               other._activeSessions,
               _activeSessions,
             ) &&
+            (identical(other.currentFilter, currentFilter) ||
+                other.currentFilter == currentFilter) &&
             (identical(other.error, error) || other.error == error));
   }
 
@@ -270,7 +316,9 @@ class _$TaskListStateImpl implements _TaskListState {
     const DeepCollectionEquality().hash(_todayTasks),
     const DeepCollectionEquality().hash(_activeTasks),
     const DeepCollectionEquality().hash(_completedTasks),
+    const DeepCollectionEquality().hash(_filteredTasks),
     const DeepCollectionEquality().hash(_activeSessions),
+    currentFilter,
     error,
   );
 
@@ -289,7 +337,9 @@ abstract class _TaskListState implements TaskListState {
     required final List<TaskModel> todayTasks,
     required final List<TaskModel> activeTasks,
     required final List<TaskModel> completedTasks,
+    required final List<TaskModel> filteredTasks,
     required final Map<String, TimerSession> activeSessions,
+    final TaskFilter currentFilter,
     final String? error,
   }) = _$TaskListStateImpl;
 
@@ -302,7 +352,11 @@ abstract class _TaskListState implements TaskListState {
   @override
   List<TaskModel> get completedTasks;
   @override
+  List<TaskModel> get filteredTasks;
+  @override
   Map<String, TimerSession> get activeSessions;
+  @override
+  TaskFilter get currentFilter;
   @override
   String? get error;
 

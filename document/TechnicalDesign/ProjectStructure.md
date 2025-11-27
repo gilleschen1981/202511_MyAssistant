@@ -101,6 +101,7 @@ lib/
 │   │   └── enums/
 │   │       ├── priority.dart
 │   │       ├── status.dart
+│   │       ├── task_filter.dart
 │   │       └── task_type.dart
 │   │
 │   ├── repositories/           # 仓库实现
@@ -422,10 +423,30 @@ class TaskListProvider extends StateNotifier<TaskListState> {
 
   // 刷新任务
   Future<void> refreshTasks();
+
+  // 设置过滤器
+  void setFilter(TaskFilter filter);
+
+  // 应用过滤器
+  List<TaskModel> _applyFilter(List<TaskModel> tasks, TaskFilter filter);
+
+  // 重新应用当前过滤器
+  void _reapplyFilter();
 }
 ```
 
-### 5.5 home_screen.dart
+### 5.5 task_filter_bar.dart
+```dart
+// 任务过滤条
+class TaskFilterBar extends ConsumerWidget {
+  // 显示过滤器芯片
+  // 支持过滤：全部、待执行、已完成、已跳过
+  // 点击芯片切换过滤器
+  // 选中状态有视觉反馈
+}
+```
+
+### 5.6 home_screen.dart
 ```dart
 // 主页面容器（底部导航）
 class HomeScreen extends StatefulWidget {

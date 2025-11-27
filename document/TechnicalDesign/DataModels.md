@@ -292,6 +292,16 @@ enum TaskStatus {
   skipped,    // 已跳过
   deleted     // 已删除（软删除状态）
 }
+
+enum TaskFilter {
+  all('全部'),        // 所有任务
+  active('待执行'),   // 待执行任务
+  completed('已完成'), // 已完成任务
+  skipped('已跳过');  // 已跳过任务
+
+  const TaskFilter(this.label);
+  final String label;  // 显示标签
+}
 ```
 
 ### 1.6 User（用户）实体

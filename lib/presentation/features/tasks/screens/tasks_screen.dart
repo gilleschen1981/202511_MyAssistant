@@ -5,6 +5,7 @@ import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/presentation/providers/task_list_notifier.dart';
 import 'package:myassistant/presentation/features/tasks/widgets/compact_task_card.dart';
 import 'package:myassistant/presentation/features/tasks/widgets/task_quick_menu.dart';
+import 'package:myassistant/presentation/features/tasks/widgets/task_filter_bar.dart';
 import 'package:myassistant/presentation/features/tasks/utils/task_grouping.dart';
 
 /// Tasks screen - displays tasks grouped by deadline
@@ -51,32 +52,46 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     }
 
     final taskState = taskListAsync.value!;
-    // Filter out deleted tasks
-    final allTasks = taskState.todayTasks
+    // Use filtered tasks instead of all today tasks
+    final displayTasks = taskState.filteredTasks
         .where((task) => task.status != TaskStatus.deleted)
         .toList();
 
-    if (allTasks.isEmpty) {
-      return _buildEmptyState();
+    if (displayTasks.isEmpty) {
+      return Column(
+        children: [
+          const TaskFilterBar(),
+          Expanded(child: _buildEmptyState()),
+        ],
+      );
     }
 
     // Group tasks by deadline
-    final groupedTasks = TaskGrouping.groupByDeadline(allTasks);
+    final groupedTasks = TaskGrouping.groupByDeadline(displayTasks);
 
     return RefreshIndicator(
       onRefresh: () async {
         await ref.read(taskListNotifierProvider.notifier).refreshTasks();
       },
-      child: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
         children: [
-          // Render each group
-          for (final groupKey in TaskGrouping.orderedGroupKeys)
-            if (groupedTasks[groupKey]!.isNotEmpty)
-              _buildTaskGroup(
-                groupKey: groupKey,
-                tasks: groupedTasks[groupKey]!,
-              ),
+          // Filter bar
+          const TaskFilterBar(),
+          // Task list
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: [
+                // Render each group
+                for (final groupKey in TaskGrouping.orderedGroupKeys)
+                  if (groupedTasks[groupKey]!.isNotEmpty)
+                    _buildTaskGroup(
+                      groupKey: groupKey,
+                      tasks: groupedTasks[groupKey]!,
+                    ),
+              ],
+            ),
+          ),
         ],
       ),
     );

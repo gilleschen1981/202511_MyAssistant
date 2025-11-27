@@ -5,6 +5,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
+import 'package:myassistant/data/models/enums/task_filter.dart';
 import 'package:myassistant/data/services/task_execution_service.dart';
 import 'package:myassistant/data/services/task_refresh_service.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
@@ -23,7 +24,9 @@ class TaskListState with _$TaskListState {
     required List<TaskModel> todayTasks,
     required List<TaskModel> activeTasks,
     required List<TaskModel> completedTasks,
+    required List<TaskModel> filteredTasks,
     required Map<String, TimerSession> activeSessions,
+    @Default(TaskFilter.all) TaskFilter currentFilter,
     String? error,
   }) = _TaskListState;
 
@@ -32,6 +35,7 @@ class TaskListState with _$TaskListState {
         todayTasks: [],
         activeTasks: [],
         completedTasks: [],
+        filteredTasks: [],
         activeSessions: {},
       );
 }
@@ -81,6 +85,7 @@ class TaskListNotifier extends _$TaskListNotifier {
         todayTasks: todayTasks,
         activeTasks: activeTasks,
         completedTasks: completedTasks,
+        filteredTasks: todayTasks, // Initially show all tasks
         activeSessions: activeSessions,
       );
     } catch (e) {
@@ -155,6 +160,9 @@ class TaskListNotifier extends _$TaskListNotifier {
       } else {
         state = AsyncValue.data(newState);
       }
+
+      // Reapply current filter
+      _reapplyFilter();
     } catch (e) {
       // Reload to revert optimistic update
       final newState = await _loadTasks();
@@ -187,6 +195,9 @@ class TaskListNotifier extends _$TaskListNotifier {
       // Reload tasks to reflect changes
       final newState = await _loadTasks();
       state = AsyncValue.data(newState);
+
+      // Reapply current filter
+      _reapplyFilter();
     } catch (e) {
       // Reload to revert optimistic update
       final newState = await _loadTasks();
@@ -347,6 +358,50 @@ class TaskListNotifier extends _$TaskListNotifier {
       );
       return null;
     }
+  }
+
+  /// Set filter and update filtered tasks
+  void setFilter(TaskFilter filter) {
+    if (state.valueOrNull == null) return;
+
+    final currentState = state.value!;
+    final filteredTasks = _applyFilter(currentState.todayTasks, filter);
+
+    state = AsyncValue.data(
+      currentState.copyWith(
+        currentFilter: filter,
+        filteredTasks: filteredTasks,
+      ),
+    );
+  }
+
+  /// Apply filter to task list
+  List<TaskModel> _applyFilter(List<TaskModel> tasks, TaskFilter filter) {
+    switch (filter) {
+      case TaskFilter.all:
+        return tasks;
+      case TaskFilter.active:
+        return tasks.where((t) => t.status == TaskStatus.active).toList();
+      case TaskFilter.completed:
+        return tasks.where((t) => t.status == TaskStatus.completed).toList();
+      case TaskFilter.skipped:
+        return tasks.where((t) => t.status == TaskStatus.skipped).toList();
+    }
+  }
+
+  /// Reapply current filter after task list changes
+  void _reapplyFilter() {
+    if (state.valueOrNull == null) return;
+
+    final currentState = state.value!;
+    final filteredTasks = _applyFilter(
+      currentState.todayTasks,
+      currentState.currentFilter,
+    );
+
+    state = AsyncValue.data(
+      currentState.copyWith(filteredTasks: filteredTasks),
+    );
   }
 }
 

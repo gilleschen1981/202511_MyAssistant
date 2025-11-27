@@ -97,7 +97,7 @@ final taskStatisticsProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef TaskStatisticsRef = AutoDisposeFutureProviderRef<TaskStatistics>;
-String _$taskListNotifierHash() => r'dcd498cee02e0166d8e0b04aa833a0f6b4320dc1';
+String _$taskListNotifierHash() => r'fdf9437587d4b73eb9dc935c2eaa2c935a24756c';
 
 /// Task list notifier using modern AsyncNotifier pattern
 ///
