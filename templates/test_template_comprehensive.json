@@ -1,23 +1,23 @@
 {
   "template_name": "Comprehensive Test Template",
-  "description": "测试模板 - 覆盖所有RepeatRule和TaskConfiguration类型，包含各种任务配置组合",
+  "description": "测试模板 - 覆盖RepeatRule×TaskConfiguration所有组合，每种RepeatRule都包含重复次数任务",
   "version": "2.0",
   "exported_at": "2025-11-28T08:00:00Z",
   "goals": [
     {
       "title": "测试目标A",
-      "description": "用于测试所有RepeatRule类型",
+      "description": "RepeatRule全覆盖 - 每种重复规则都包含重复次数任务",
       "priority": "high",
-      "tags": ["测试", "RepeatRule"],
+      "tags": ["测试", "RepeatRule", "重复次数"],
       "status": "active",
       "deadline": 1767110400,
-      "successCriteria": "完成所有重复类型的测试"
+      "successCriteria": "完成所有重复规则类型的测试，特别是重复次数任务"
     },
     {
       "title": "测试目标B",
-      "description": "用于测试所有TaskConfiguration类型",
+      "description": "TaskConfiguration全覆盖 - 包含所有任务配置类型的组合",
       "priority": "medium",
-      "tags": ["测试", "TaskConfig"],
+      "tags": ["测试", "TaskConfig", "组合"],
       "status": "active",
       "deadline": 1767110400,
       "successCriteria": "完成所有任务配置类型的测试"
@@ -26,8 +26,8 @@
   "plans": [
     {
       "goal_title": "测试目标A",
-      "name": "一次性任务",
-      "description": "RepeatType: oneTime - 只执行一次的简单checkbox任务",
+      "name": "一次性简单任务",
+      "description": "oneTime + simple - 只执行一次的简单checkbox任务",
       "startDate": 1732752000,
       "endDate": 1767110400,
       "status": "active",
@@ -43,76 +43,59 @@
     },
     {
       "goal_title": "测试目标A",
-      "name": "每日任务",
-      "description": "RepeatType: daily - 每天重复的计数任务，重复3次",
+      "name": "一次性重复任务",
+      "description": "oneTime + counter - 一次性任务，重复2次",
       "startDate": 1732752000,
       "endDate": 1767110400,
       "status": "active",
       "repeatRule": {
-        "type": "daily",
+        "type": "oneTime",
         "customDays": null
       },
       "taskConfig": {
         "durationMinutes": null,
-        "repeatCount": 3,
+        "repeatCount": 2,
         "evaluationOptions": null
       }
     },
     {
       "goal_title": "测试目标A",
-      "name": "每周任务",
-      "description": "RepeatType: weekly - 每周重复的计时任务，每次60分钟",
+      "name": "每日简单任务",
+      "description": "daily + simple - 每天一个简单checkbox",
       "startDate": 1732752000,
       "endDate": 1767110400,
       "status": "active",
       "repeatRule": {
-        "type": "weekly",
+        "type": "daily",
         "customDays": null
       },
       "taskConfig": {
-        "durationMinutes": 60,
+        "durationMinutes": null,
         "repeatCount": null,
         "evaluationOptions": null
       }
     },
     {
       "goal_title": "测试目标A",
-      "name": "每月任务",
-      "description": "RepeatType: monthly - 每月重复的评估任务，需要质量评价",
+      "name": "每日重复任务",
+      "description": "daily + counter - 每天重复2次的计数任务",
       "startDate": 1732752000,
       "endDate": 1767110400,
       "status": "active",
       "repeatRule": {
-        "type": "monthly",
+        "type": "daily",
         "customDays": null
       },
       "taskConfig": {
         "durationMinutes": null,
-        "repeatCount": null,
-        "evaluationOptions": ["差", "中", "好", "优秀"]
+        "repeatCount": 2,
+        "evaluationOptions": null
       }
     },
     {
       "goal_title": "测试目标A",
-      "name": "自定义周期任务",
-      "description": "RepeatType: custom - 每3天重复一次的计数任务，重复5次",
-      "startDate": 1732752000,
-      "endDate": 1767110400,
-      "status": "active",
-      "repeatRule": {
-        "type": "custom",
-        "customDays": 3
-      },
-      "taskConfig": {
-        "durationMinutes": null,
-        "repeatCount": 5,
-        "evaluationOptions": null
-      }
-    },
-    {
-      "goal_title": "测试目标B",
-      "name": "简单任务",
-      "description": "TaskType: simple - 最基本的checkbox任务，无需计时或计数",
+      "name": "每日计时任务",
+      "description": "daily + timer - 每天计时30分钟",
       "startDate": 1732752000,
       "endDate": 1767110400,
       "status": "active",
@@ -121,66 +104,15 @@
         "customDays": null
       },
       "taskConfig": {
-        "durationMinutes": null,
+        "durationMinutes": 30,
         "repeatCount": null,
         "evaluationOptions": null
       }
     },
     {
-      "goal_title": "测试目标B",
-      "name": "计时任务",
-      "description": "TaskType: timer - 需要计时45分钟的任务",
-      "startDate": 1732752000,
-      "endDate": 1767110400,
-      "status": "active",
-      "repeatRule": {
-        "type": "daily",
-        "customDays": null
-      },
-      "taskConfig": {
-        "durationMinutes": 45,
-        "repeatCount": null,
-        "evaluationOptions": null
-      }
-    },
-    {
-      "goal_title": "测试目标B",
-      "name": "计数任务",
-      "description": "TaskType: counter - 需要重复10次的计数任务",
-      "startDate": 1732752000,
-      "endDate": 1767110400,
-      "status": "active",
-      "repeatRule": {
-        "type": "daily",
-        "customDays": null
-      },
-      "taskConfig": {
-        "durationMinutes": null,
-        "repeatCount": 10,
-        "evaluationOptions": null
-      }
-    },
-    {
-      "goal_title": "测试目标B",
-      "name": "评估任务",
-      "description": "TaskType: evaluation - 需要质量评估的任务",
-      "startDate": 1732752000,
-      "endDate": 1767110400,
-      "status": "active",
-      "repeatRule": {
-        "type": "daily",
-        "customDays": null
-      },
-      "taskConfig": {
-        "durationMinutes": null,
-        "repeatCount": null,
-        "evaluationOptions": ["很差", "一般", "良好", "优秀"]
-      }
-    },
-    {
-      "goal_title": "测试目标B",
-      "name": "计时加计数任务",
-      "description": "TaskType: timerWithCount - 计时20分钟并重复2次",
+      "goal_title": "测试目标A",
+      "name": "每日计时重复任务",
+      "description": "daily + timerWithCount - 每天计时20分钟，重复2次",
       "startDate": 1732752000,
       "endDate": 1767110400,
       "status": "active",
@@ -195,26 +127,9 @@
       }
     },
     {
-      "goal_title": "测试目标B",
-      "name": "计数加评估任务",
-      "description": "TaskType: counterWithEval - 重复2次并进行评估",
-      "startDate": 1732752000,
-      "endDate": 1767110400,
-      "status": "active",
-      "repeatRule": {
-        "type": "daily",
-        "customDays": null
-      },
-      "taskConfig": {
-        "durationMinutes": null,
-        "repeatCount": 2,
-        "evaluationOptions": ["不满意", "满意", "非常满意"]
-      }
-    },
-    {
       "goal_title": "测试目标A",
-      "name": "综合测试任务1",
-      "description": "weekly + timerWithCount - 每周计时任务，30分钟重复1次",
+      "name": "每周计时任务",
+      "description": "weekly + timer - 每周计时45分钟",
       "startDate": 1732752000,
       "endDate": 1767110400,
       "status": "active",
@@ -223,15 +138,49 @@
         "customDays": null
       },
       "taskConfig": {
-        "durationMinutes": 30,
-        "repeatCount": 1,
+        "durationMinutes": 45,
+        "repeatCount": null,
         "evaluationOptions": null
       }
     },
     {
       "goal_title": "测试目标A",
-      "name": "综合测试任务2",
-      "description": "monthly + counterWithEval - 每月计数评估任务，重复5次",
+      "name": "每周重复任务",
+      "description": "weekly + counter - 每周重复2次的计数任务",
+      "startDate": 1732752000,
+      "endDate": 1767110400,
+      "status": "active",
+      "repeatRule": {
+        "type": "weekly",
+        "customDays": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": 2,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "测试目标B",
+      "name": "每周计时重复任务",
+      "description": "weekly + timerWithCount - 每周计时25分钟，重复2次",
+      "startDate": 1732752000,
+      "endDate": 1767110400,
+      "status": "active",
+      "repeatRule": {
+        "type": "weekly",
+        "customDays": null
+      },
+      "taskConfig": {
+        "durationMinutes": 25,
+        "repeatCount": 2,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "测试目标B",
+      "name": "每月评估任务",
+      "description": "monthly + evaluation - 每月进行质量评估",
       "startDate": 1732752000,
       "endDate": 1767110400,
       "status": "active",
@@ -241,14 +190,65 @@
       },
       "taskConfig": {
         "durationMinutes": null,
-        "repeatCount": 5,
+        "repeatCount": null,
+        "evaluationOptions": ["差", "中", "好", "优秀"]
+      }
+    },
+    {
+      "goal_title": "测试目标B",
+      "name": "每月重复任务",
+      "description": "monthly + counter - 每月重复2次的计数任务",
+      "startDate": 1732752000,
+      "endDate": 1767110400,
+      "status": "active",
+      "repeatRule": {
+        "type": "monthly",
+        "customDays": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": 2,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "测试目标B",
+      "name": "每月重复评估任务",
+      "description": "monthly + counterWithEval - 每月重复2次并评估",
+      "startDate": 1732752000,
+      "endDate": 1767110400,
+      "status": "active",
+      "repeatRule": {
+        "type": "monthly",
+        "customDays": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": 2,
         "evaluationOptions": ["失败", "部分成功", "完全成功"]
       }
     },
     {
       "goal_title": "测试目标B",
-      "name": "综合测试任务3",
-      "description": "custom(5天) + timerWithCount - 自定义周期的计时计数任务，25分钟重复3次",
+      "name": "自定义周期评估任务",
+      "description": "custom(3天) + evaluation - 每3天进行评估",
+      "startDate": 1732752000,
+      "endDate": 1767110400,
+      "status": "active",
+      "repeatRule": {
+        "type": "custom",
+        "customDays": 3
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": null,
+        "evaluationOptions": ["很差", "一般", "良好", "优秀"]
+      }
+    },
+    {
+      "goal_title": "测试目标B",
+      "name": "自定义周期重复任务",
+      "description": "custom(5天) + counter - 每5天重复2次",
       "startDate": 1732752000,
       "endDate": 1767110400,
       "status": "active",
@@ -257,9 +257,26 @@
         "customDays": 5
       },
       "taskConfig": {
-        "durationMinutes": 25,
-        "repeatCount": 3,
+        "durationMinutes": null,
+        "repeatCount": 2,
         "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "测试目标B",
+      "name": "自定义周期重复评估任务",
+      "description": "custom(7天) + counterWithEval - 每7天重复2次并评估",
+      "startDate": 1732752000,
+      "endDate": 1767110400,
+      "status": "active",
+      "repeatRule": {
+        "type": "custom",
+        "customDays": 7
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": 2,
+        "evaluationOptions": ["不满意", "满意", "非常满意"]
       }
     }
   ]
