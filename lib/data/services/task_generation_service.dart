@@ -193,8 +193,15 @@ class TaskGenerationService {
 
       case RepeatType.weekly:
         // Weekly task: check if this week already has task
+        final lastWeekStart = _getStartOfWeek(lastTask.windowStartTime);
+        final currentWeekStart = _getStartOfWeek(now);
         final isSameWeek = _isSameWeek(lastTask.windowStartTime, now);
-        AppLogger.d('Weekly task - same week check: $isSameWeek, should generate: ${!isSameWeek}', tag: 'TaskGenerationService');
+        AppLogger.d(
+          'Weekly task - last week start: $lastWeekStart, '
+          'current week start: $currentWeekStart, '
+          'same week: $isSameWeek, should generate: ${!isSameWeek}',
+          tag: 'TaskGenerationService'
+        );
         return !isSameWeek;
 
       case RepeatType.monthly:
@@ -311,18 +318,14 @@ class TaskGenerationService {
   }
 
   bool _isSameWeek(DateTime date1, DateTime date2) {
-    final week1 = _getWeekOfYear(date1);
-    final week2 = _getWeekOfYear(date2);
-    return date1.year == date2.year && week1 == week2;
+    final week1Start = _getStartOfWeek(date1);
+    final week2Start = _getStartOfWeek(date2);
+    return week1Start.year == week2Start.year &&
+           week1Start.month == week2Start.month &&
+           week1Start.day == week2Start.day;
   }
 
   bool _isSameMonth(DateTime date1, DateTime date2) {
     return date1.year == date2.year && date1.month == date2.month;
-  }
-
-  int _getWeekOfYear(DateTime date) {
-    final firstDayOfYear = DateTime(date.year, 1, 1);
-    final daysSinceFirst = date.difference(firstDayOfYear).inDays;
-    return (daysSinceFirst / 7).floor() + 1;
   }
 }
