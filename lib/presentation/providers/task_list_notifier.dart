@@ -328,6 +328,9 @@ class TaskListNotifier extends _$TaskListNotifier {
         ),
       );
 
+      // Reapply current filter to update filteredTasks
+      _reapplyFilter();
+
       return updatedTask;
     } catch (e) {
       state = AsyncValue.data(
@@ -365,6 +368,9 @@ class TaskListNotifier extends _$TaskListNotifier {
           lastOperation: operation,
         ),
       );
+
+      // Reapply current filter to update filteredTasks
+      _reapplyFilter();
     } catch (e) {
       state = AsyncValue.data(
         state.value!.copyWith(error: e.toString()),
