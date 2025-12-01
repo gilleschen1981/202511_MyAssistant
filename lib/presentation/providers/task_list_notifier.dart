@@ -68,14 +68,17 @@ class TaskListNotifier extends _$TaskListNotifier {
     }
 
     try {
-      // Get today's tasks
+      // Get tasks in current execution window
+      final windowTasks = await _taskRepository.getTasksInCurrentWindow(user.id);
+
+      // Get today's tasks (for UI grouping)
       final todayTasks = await _taskRepository.getTodayTasks(user.id);
 
-      // Filter by status
-      final activeTasks = todayTasks
+      // Filter by status (from windowTasks)
+      final activeTasks = windowTasks
           .where((t) => t.status == TaskStatus.active)
           .toList();
-      final completedTasks = todayTasks
+      final completedTasks = windowTasks
           .where((t) => t.status == TaskStatus.completed)
           .toList();
 
@@ -83,11 +86,11 @@ class TaskListNotifier extends _$TaskListNotifier {
       final activeSessions = _executionService.getActiveSessions();
 
       return TaskListState(
-        allTasks: todayTasks,
-        todayTasks: todayTasks,
-        activeTasks: activeTasks,
-        completedTasks: completedTasks,
-        filteredTasks: todayTasks, // Initially show all tasks
+        allTasks: windowTasks,       // Use current window tasks
+        todayTasks: todayTasks,       // Keep for UI grouping
+        activeTasks: activeTasks,     // Filtered from windowTasks
+        completedTasks: completedTasks, // Filtered from windowTasks
+        filteredTasks: windowTasks,   // Initially show window tasks
         activeSessions: activeSessions,
       );
     } catch (e) {
@@ -426,7 +429,7 @@ class TaskListNotifier extends _$TaskListNotifier {
     if (state.valueOrNull == null) return;
 
     final currentState = state.value!;
-    final filteredTasks = _applyFilter(currentState.todayTasks, filter);
+    final filteredTasks = _applyFilter(currentState.allTasks, filter);
 
     state = AsyncValue.data(
       currentState.copyWith(
@@ -456,7 +459,7 @@ class TaskListNotifier extends _$TaskListNotifier {
 
     final currentState = state.value!;
     final filteredTasks = _applyFilter(
-      currentState.todayTasks,
+      currentState.allTasks,
       currentState.currentFilter,
     );
 
