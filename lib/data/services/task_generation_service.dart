@@ -245,7 +245,7 @@ class TaskGenerationService {
           windowStart = _getStartOfMonth(now);
           break;
         case RepeatType.custom:
-          windowStart = lastTask.windowEndTime.add(const Duration(days: 1));
+          windowStart = _getStartOfDay(lastTask.windowEndTime.add(const Duration(days: 1)));
           break;
       }
     }
