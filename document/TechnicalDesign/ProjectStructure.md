@@ -20,6 +20,17 @@
 - **Web**: 不作为发布目标，仅可能用于开发调试
 - **Desktop**: 不支持Windows/macOS/Linux桌面平台
 
+### 屏幕方向配置
+- **方向锁定**: 竖屏模式 (Portrait)
+  - 应用启动时锁定为竖屏方向
+  - 使用 `SystemChrome.setPreferredOrientations` 配置
+  - 支持的方向:
+    - `DeviceOrientation.portraitUp` (正常竖屏)
+    - `DeviceOrientation.portraitDown` (倒置竖屏)
+  - 禁用方向:
+    - `DeviceOrientation.landscapeLeft` (横屏左)
+    - `DeviceOrientation.landscapeRight` (横屏右)
+
 ## 1. 项目整体结构
 
 ```

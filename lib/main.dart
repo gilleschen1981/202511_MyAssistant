@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myassistant/core/theme/app_theme.dart';
 import 'package:myassistant/di/providers/database_provider.dart';
@@ -8,6 +9,14 @@ import 'package:myassistant/presentation/providers/app_lifecycle_provider.dart';
 void main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Lock orientation to portrait mode only (Android-only app)
+  // The app is designed exclusively for portrait orientation
+  // and does not support landscape mode or rotation adaptation.
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
   // Run the app with Riverpod
   runApp(
