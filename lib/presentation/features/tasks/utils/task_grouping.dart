@@ -51,7 +51,9 @@ class TaskGrouping {
   static String getGroupDisplayName(String groupKey, int count) {
     switch (groupKey) {
       case 'today':
-        return '今日 ($count)';
+        final now = DateTime.now();
+        final dateStr = '${now.month}月${now.day}日';
+        return '今日 ($count) $dateStr';
       case 'tomorrow':
         return '明日 ($count)';
       case 'thisWeek':
