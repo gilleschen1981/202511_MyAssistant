@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:mockito/annotations.dart';
 import 'package:myassistant/data/services/goal_management_service.dart';
+import 'package:myassistant/data/services/task_generation_service.dart';
 import 'package:myassistant/data/models/goal_model.dart';
 import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/task_model.dart';
@@ -16,7 +17,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'goal_management_service_test.mocks.dart';
 
-@GenerateMocks([IGoalRepository, IPlanRepository, ITaskRepository])
+@GenerateMocks([IGoalRepository, IPlanRepository, ITaskRepository, TaskGenerationService])
 void main() {
   // Initialize sqflite ffi for testing
   setUpAll(() {
@@ -27,15 +28,18 @@ void main() {
   late MockIGoalRepository mockGoalRepository;
   late MockIPlanRepository mockPlanRepository;
   late MockITaskRepository mockTaskRepository;
+  late MockTaskGenerationService mockTaskGenerationService;
 
   setUp(() {
     mockGoalRepository = MockIGoalRepository();
     mockPlanRepository = MockIPlanRepository();
     mockTaskRepository = MockITaskRepository();
+    mockTaskGenerationService = MockTaskGenerationService();
     service = GoalManagementService(
       goalRepository: mockGoalRepository,
       planRepository: mockPlanRepository,
       taskRepository: mockTaskRepository,
+      generationService: mockTaskGenerationService,
     );
   });
 

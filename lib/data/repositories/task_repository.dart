@@ -238,12 +238,14 @@ class TaskRepository implements ITaskRepository {
     required TaskStatus status,
     bool clearExecutionData = false,
     bool clearSkipData = false,
+    bool clearDeletedAt = false,
   }) async {
     final result = await _taskDao.updateTaskStatus(
       taskId,
       status,
       clearExecutionData: clearExecutionData,
       clearSkipData: clearSkipData,
+      clearDeletedAt: clearDeletedAt,
     );
 
     if (result == null) {

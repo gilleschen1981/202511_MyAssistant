@@ -293,6 +293,7 @@ class MockITaskRepository extends _i1.Mock implements _i5.ITaskRepository {
     required _i8.TaskStatus? status,
     bool? clearExecutionData = false,
     bool? clearSkipData = false,
+    bool? clearDeletedAt = false,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#updateTaskStatus, [], {
@@ -300,6 +301,7 @@ class MockITaskRepository extends _i1.Mock implements _i5.ITaskRepository {
               #status: status,
               #clearExecutionData: clearExecutionData,
               #clearSkipData: clearSkipData,
+              #clearDeletedAt: clearDeletedAt,
             }),
             returnValue: _i6.Future<_i2.TaskModel>.value(
               _FakeTaskModel_0(
@@ -309,6 +311,7 @@ class MockITaskRepository extends _i1.Mock implements _i5.ITaskRepository {
                   #status: status,
                   #clearExecutionData: clearExecutionData,
                   #clearSkipData: clearSkipData,
+                  #clearDeletedAt: clearDeletedAt,
                 }),
               ),
             ),

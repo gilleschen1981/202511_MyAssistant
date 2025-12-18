@@ -1,14 +1,17 @@
 import 'dart:convert';
 import 'package:myassistant/data/models/goal_model.dart';
+import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/data/models/enums/priority.dart';
+import 'package:myassistant/data/models/enums/task_type.dart';
 import 'package:myassistant/domain/repositories/i_goal_repository.dart';
 import 'package:myassistant/domain/repositories/i_plan_repository.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
 import 'package:myassistant/core/errors/exceptions.dart';
 import 'package:myassistant/core/utils/app_logger.dart';
 import 'package:myassistant/data/data_sources/local/database/app_database.dart';
+import 'package:myassistant/data/services/task_generation_service.dart';
 
 /// Goal statistics
 class GoalStatistics {
@@ -53,14 +56,17 @@ class GoalManagementService {
   final IGoalRepository _goalRepository;
   final IPlanRepository _planRepository;
   final ITaskRepository _taskRepository;
+  final TaskGenerationService _generationService;
 
   GoalManagementService({
     required IGoalRepository goalRepository,
     required IPlanRepository planRepository,
     required ITaskRepository taskRepository,
+    required TaskGenerationService generationService,
   })  : _goalRepository = goalRepository,
         _planRepository = planRepository,
-        _taskRepository = taskRepository;
+        _taskRepository = taskRepository,
+        _generationService = generationService;
 
   /// Create a new goal
   Future<GoalModel> createGoal({
@@ -483,6 +489,306 @@ class GoalManagementService {
     return approachingGoals;
   }
 
+  /// Resume a paused goal
+  ///
+  /// Marks a paused goal and all its associated plans as active.
+  /// Uses database transaction to ensure atomicity.
+  ///
+  /// Parameters:
+  /// - [goalId]: The ID of the goal to resume
+  ///
+  /// Returns:
+  /// - The updated goal object
+  ///
+  /// Throws:
+  /// - [NotFoundException]: Goal not found
+  /// - [BusinessException]: Goal is not paused
+  Future<GoalModel> resumeGoal(String goalId) async {
+    AppLogger.i('Resuming goal: $goalId', tag: 'GoalManagementService');
+
+    // 1. Get and validate goal
+    final goal = await _goalRepository.getGoalById(goalId);
+    if (goal == null) {
+      throw const NotFoundException('目标不存在');
+    }
+
+    AppLogger.d('Goal status BEFORE: ${goal.status}', tag: 'GoalManagementService');
+
+    if (goal.status != GoalStatus.paused) {
+      throw const BusinessException('只能恢复暂停的目标');
+    }
+
+    // 2. Get all plans for this goal
+    final plans = await _planRepository.getGoalPlans(goalId);
+    AppLogger.d('Found ${plans.length} plans for goal', tag: 'GoalManagementService');
+
+    // 3. Use database transaction to ensure atomicity
+    final db = await AppDatabase.instance.database;
+    AppLogger.d('Starting database transaction...', tag: 'GoalManagementService');
+
+    try {
+      await db.transaction((txn) async {
+        AppLogger.d('Inside transaction', tag: 'GoalManagementService');
+
+        // 3.1 Update all plans to active status
+        int totalPlansUpdated = 0;
+        for (final plan in plans) {
+          if (plan.status == PlanStatus.paused) {
+            final rowsAffected = await txn.update(
+              'plans',
+              {
+                'status': PlanStatus.active.toDbString(),
+                'updated_at': AppDatabase.getCurrentTimestamp(),
+              },
+              where: 'id = ?',
+              whereArgs: [plan.id],
+            );
+            totalPlansUpdated += rowsAffected;
+            AppLogger.d('Updated plan ${plan.id} (${plan.name}), rows affected: $rowsAffected', tag: 'GoalManagementService');
+          }
+        }
+        AppLogger.d('Total plans updated: $totalPlansUpdated', tag: 'GoalManagementService');
+
+        // 3.2 Update goal to active status
+        final activeStatus = GoalStatus.active.toDbString();
+        AppLogger.d('Updating goal to status: $activeStatus', tag: 'GoalManagementService');
+
+        final goalRowsAffected = await txn.update(
+          'goals',
+          {
+            'status': activeStatus,
+            'updated_at': AppDatabase.getCurrentTimestamp(),
+          },
+          where: 'id = ?',
+          whereArgs: [goalId],
+        );
+        AppLogger.d('Goal update rows affected: $goalRowsAffected', tag: 'GoalManagementService');
+
+        if (goalRowsAffected == 0) {
+          AppLogger.w('WARNING: Goal update affected 0 rows!', tag: 'GoalManagementService');
+        }
+      });
+
+      AppLogger.i('Transaction completed successfully', tag: 'GoalManagementService');
+    } catch (e) {
+      AppLogger.e('Failed to resume goal', tag: 'GoalManagementService', error: e);
+      throw BusinessException('恢复目标失败: ${e.toString()}');
+    }
+
+    // 4. Restore or create tasks for all active plans in current execution window
+    AppLogger.d('Restoring/creating tasks for resumed plans...', tag: 'GoalManagementService');
+    final updatedPlans = await _planRepository.getGoalPlans(goalId);
+    int tasksRestored = 0;
+    int tasksCreated = 0;
+
+    for (final plan in updatedPlans) {
+      if (plan.status == PlanStatus.active && !plan.isDeleted) {
+        AppLogger.d('Processing plan: ${plan.name} (${plan.id})', tag: 'GoalManagementService');
+
+        // 4.1 Calculate current execution window
+        final window = _calculateCurrentExecutionWindow(plan);
+        AppLogger.d('Current execution window: ${window.start} - ${window.end}', tag: 'GoalManagementService');
+
+        // 4.2 Get all tasks for this plan
+        final tasks = await _taskRepository.getPlanTasks(plan.id);
+        AppLogger.d('Found ${tasks.length} total tasks for plan', tag: 'GoalManagementService');
+
+        // 4.3 Find tasks in current execution window
+        final tasksInWindow = tasks.where((task) =>
+          task.windowStartTime.isBefore(window.end) &&
+          task.windowEndTime.isAfter(window.start)
+        ).toList();
+        AppLogger.d('Found ${tasksInWindow.length} tasks in current window', tag: 'GoalManagementService');
+
+        // 4.4 Check for deleted tasks in current window
+        final deletedTasksInWindow = tasksInWindow.where((task) =>
+          task.status == TaskStatus.deleted
+        ).toList();
+
+        if (deletedTasksInWindow.isNotEmpty) {
+          // 4.5 Restore deleted tasks to active status
+          AppLogger.i('Restoring ${deletedTasksInWindow.length} deleted task(s) for plan ${plan.name}', tag: 'GoalManagementService');
+          for (final task in deletedTasksInWindow) {
+            await _taskRepository.updateTaskStatus(
+              taskId: task.id,
+              status: TaskStatus.active,
+              clearDeletedAt: true,
+            );
+            tasksRestored++;
+            AppLogger.i('✓ Task restored: ${task.name} (${task.id})', tag: 'GoalManagementService');
+          }
+        } else {
+          // 4.6 No deleted task in current window, generate new one
+          AppLogger.d('No deleted task in window, generating new task for plan ${plan.name}', tag: 'GoalManagementService');
+          final task = await _generationService.generateNextTask(plan);
+          if (task != null) {
+            tasksCreated++;
+            AppLogger.i('✓ Task created: ${task.name} for plan ${plan.name}', tag: 'GoalManagementService');
+          } else {
+            AppLogger.d('✗ No task created for plan ${plan.name} (may already have active task)', tag: 'GoalManagementService');
+          }
+        }
+      }
+    }
+    AppLogger.i('Restored $tasksRestored tasks, created $tasksCreated new tasks for ${updatedPlans.length} plans', tag: 'GoalManagementService');
+
+    // 5. Re-query and return updated goal
+    AppLogger.d('Re-querying goal from database...', tag: 'GoalManagementService');
+    final updatedGoal = await _goalRepository.getGoalById(goalId);
+    if (updatedGoal == null) {
+      throw const NotFoundException('Goal not found after update');
+    }
+
+    AppLogger.d('Goal status AFTER: ${updatedGoal.status}', tag: 'GoalManagementService');
+    AppLogger.i('Goal resumed successfully', tag: 'GoalManagementService');
+
+    return updatedGoal;
+  }
+
+  /// Pause a goal
+  ///
+  /// Marks a goal and all its associated plans and active tasks as paused/deleted.
+  /// Uses database transaction to ensure atomicity.
+  ///
+  /// Parameters:
+  /// - [goalId]: The ID of the goal to pause
+  ///
+  /// Returns:
+  /// - The updated goal object
+  ///
+  /// Throws:
+  /// - [NotFoundException]: Goal not found
+  /// - [BusinessException]: Goal is already paused, completed, or deleted
+  Future<GoalModel> pauseGoal(String goalId) async {
+    AppLogger.i('Pausing goal: $goalId', tag: 'GoalManagementService');
+
+    // 1. Get and validate goal
+    final goal = await _goalRepository.getGoalById(goalId);
+    if (goal == null) {
+      throw const NotFoundException('目标不存在');
+    }
+
+    AppLogger.d('Goal status BEFORE: ${goal.status}', tag: 'GoalManagementService');
+
+    if (goal.status == GoalStatus.paused) {
+      throw const BusinessException('目标已暂停，无法重复暂停');
+    }
+
+    if (goal.status == GoalStatus.completed) {
+      throw const BusinessException('已完成的目标无法暂停');
+    }
+
+    if (goal.status == GoalStatus.deleted) {
+      throw const BusinessException('已删除的目标无法暂停');
+    }
+
+    // 2. Get all plans for this goal
+    final plans = await _planRepository.getGoalPlans(goalId);
+    AppLogger.d('Found ${plans.length} plans for goal', tag: 'GoalManagementService');
+
+    // 3. Get all tasks for all plans (before transaction)
+    final Map<String, List<TaskModel>> planTasksMap = {};
+    for (final plan in plans) {
+      final tasks = await _taskRepository.getPlanTasks(plan.id);
+      planTasksMap[plan.id] = tasks;
+    }
+
+    // 4. Use database transaction to ensure atomicity
+    final db = await AppDatabase.instance.database;
+    AppLogger.d('Starting database transaction...', tag: 'GoalManagementService');
+
+    try {
+      await db.transaction((txn) async {
+        AppLogger.d('Inside transaction', tag: 'GoalManagementService');
+
+        // 4.1 Soft delete all active tasks in current execution window for all plans
+        int totalTasksDeleted = 0;
+        for (final plan in plans) {
+          final tasks = planTasksMap[plan.id] ?? [];
+
+          // Filter active tasks in current execution window
+          final tasksToDelete = tasks.where((task) =>
+            task.status == TaskStatus.active && task.isInCurrentWindow
+          ).toList();
+
+          AppLogger.d('Deleting ${tasksToDelete.length} tasks for plan ${plan.name}', tag: 'GoalManagementService');
+
+          // Soft delete these tasks
+          for (final task in tasksToDelete) {
+            final rowsAffected = await txn.update(
+              'tasks',
+              {
+                'status': TaskStatus.deleted.toDbString(),
+                'deleted_at': AppDatabase.getCurrentTimestamp(),
+                'execution_note': '目标已暂停',
+              },
+              where: 'id = ?',
+              whereArgs: [task.id],
+            );
+            totalTasksDeleted += rowsAffected;
+            AppLogger.d('Deleted task ${task.id}, rows affected: $rowsAffected', tag: 'GoalManagementService');
+          }
+        }
+        AppLogger.d('Total tasks deleted: $totalTasksDeleted', tag: 'GoalManagementService');
+
+        // 4.2 Update all plans to paused status
+        int totalPlansUpdated = 0;
+        for (final plan in plans) {
+          if (plan.status != PlanStatus.deleted) {
+            final rowsAffected = await txn.update(
+              'plans',
+              {
+                'status': PlanStatus.paused.toDbString(),
+                'updated_at': AppDatabase.getCurrentTimestamp(),
+              },
+              where: 'id = ?',
+              whereArgs: [plan.id],
+            );
+            totalPlansUpdated += rowsAffected;
+            AppLogger.d('Updated plan ${plan.id} (${plan.name}), rows affected: $rowsAffected', tag: 'GoalManagementService');
+          }
+        }
+        AppLogger.d('Total plans updated: $totalPlansUpdated', tag: 'GoalManagementService');
+
+        // 4.3 Update goal to paused status
+        final pausedStatus = GoalStatus.paused.toDbString();
+        AppLogger.d('Updating goal to status: $pausedStatus', tag: 'GoalManagementService');
+
+        final goalRowsAffected = await txn.update(
+          'goals',
+          {
+            'status': pausedStatus,
+            'updated_at': AppDatabase.getCurrentTimestamp(),
+          },
+          where: 'id = ?',
+          whereArgs: [goalId],
+        );
+        AppLogger.d('Goal update rows affected: $goalRowsAffected', tag: 'GoalManagementService');
+
+        if (goalRowsAffected == 0) {
+          AppLogger.w('WARNING: Goal update affected 0 rows!', tag: 'GoalManagementService');
+        }
+      });
+
+      AppLogger.i('Transaction completed successfully', tag: 'GoalManagementService');
+    } catch (e) {
+      AppLogger.e('Failed to pause goal', tag: 'GoalManagementService', error: e);
+      throw BusinessException('暂停目标失败: ${e.toString()}');
+    }
+
+    // 5. Re-query and return updated goal
+    AppLogger.d('Re-querying goal from database...', tag: 'GoalManagementService');
+    final updatedGoal = await _goalRepository.getGoalById(goalId);
+    if (updatedGoal == null) {
+      throw const NotFoundException('Goal not found after update');
+    }
+
+    AppLogger.d('Goal status AFTER: ${updatedGoal.status}', tag: 'GoalManagementService');
+    AppLogger.i('Goal paused successfully', tag: 'GoalManagementService');
+
+    return updatedGoal;
+  }
+
   /// Complete a goal
   ///
   /// Marks a goal and all its associated plans and active tasks as completed.
@@ -647,5 +953,77 @@ class GoalManagementService {
         throw const ValidationException('Deadline is too far in the future (max 5 years)');
       }
     }
+  }
+
+  /// Calculate current execution window for a plan
+  ({DateTime start, DateTime end}) _calculateCurrentExecutionWindow(PlanModel plan) {
+    final now = DateTime.now();
+    DateTime windowStart;
+    DateTime windowEnd;
+
+    switch (plan.repeatRule.type) {
+      case RepeatType.oneTime:
+        windowStart = plan.startDate;
+        windowEnd = plan.endDate;
+        break;
+      case RepeatType.daily:
+        windowStart = _getStartOfDay(now);
+        windowEnd = _getEndOfDay(now);
+        break;
+      case RepeatType.weekly:
+        windowStart = _getStartOfWeek(now);
+        windowEnd = _getEndOfWeek(now);
+        break;
+      case RepeatType.monthly:
+        windowStart = _getStartOfMonth(now);
+        windowEnd = _getEndOfMonth(now);
+        break;
+      case RepeatType.custom:
+        // For custom, use current day as start
+        windowStart = _getStartOfDay(now);
+        final days = (plan.repeatRule.customDays ?? 1) - 1;
+        windowEnd = windowStart.add(Duration(days: days));
+        windowEnd = _getEndOfDay(windowEnd);
+        break;
+    }
+
+    // Ensure not exceeding plan end date
+    if (windowEnd.isAfter(plan.endDate)) {
+      windowEnd = plan.endDate;
+    }
+
+    return (start: windowStart, end: windowEnd);
+  }
+
+  // Helper methods for date calculations
+  DateTime _getStartOfDay(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  DateTime _getEndOfDay(DateTime date) {
+    return DateTime(date.year, date.month, date.day, 23, 59, 59, 999);
+  }
+
+  DateTime _getStartOfWeek(DateTime date) {
+    // Monday as start of week
+    final weekday = date.weekday;
+    return _getStartOfDay(date.subtract(Duration(days: weekday - 1)));
+  }
+
+  DateTime _getEndOfWeek(DateTime date) {
+    // Sunday as end of week
+    final weekday = date.weekday;
+    return _getEndOfDay(date.add(Duration(days: 7 - weekday)));
+  }
+
+  DateTime _getStartOfMonth(DateTime date) {
+    return DateTime(date.year, date.month, 1);
+  }
+
+  DateTime _getEndOfMonth(DateTime date) {
+    final nextMonth = date.month == 12 ? 1 : date.month + 1;
+    final nextYear = date.month == 12 ? date.year + 1 : date.year;
+    final lastDay = DateTime(nextYear, nextMonth, 1).subtract(const Duration(days: 1));
+    return _getEndOfDay(lastDay);
   }
 }

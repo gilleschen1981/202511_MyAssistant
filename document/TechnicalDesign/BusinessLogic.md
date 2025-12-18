@@ -1560,6 +1560,176 @@ try {
 3. **不可逆操作**：目标完成后，相关的计划将不再生成新任务
 4. **任务跳过**：只跳过当前执行窗口内的活跃任务，已完成或已跳过的任务保持不变
 
+### 6.4 暂停目标 (Pause Goal)
+
+#### 功能描述
+用户可以在目标列表页面点击"暂停"按钮来暂停一个目标。暂停目标会自动处理所有关联的计划和活跃任务，允许用户后续恢复目标的执行。
+
+#### 业务规则
+1. **前置条件**：
+   - 只有状态为 `active` 的目标可以被暂停
+   - 已删除、已完成或已暂停的目标不能被暂停
+
+2. **暂停操作**（原子性事务）：
+   - 将该目标下所有计划中的活跃任务（在当前执行窗口内）标记为 `deleted`（软删除）
+   - 将该目标下的所有计划状态更新为 `paused`
+   - 将目标状态更新为 `paused`
+
+3. **事务保证**：
+   - 使用数据库事务确保所有操作要么全部成功，要么全部回滚
+   - 任何步骤失败都会导致整个操作回滚，保持数据一致性
+
+4. **任务软删除逻辑**：
+   - 只删除满足以下条件的任务：
+     - `task.status == TaskStatus.active`
+     - `task.isInCurrentWindow == true`（当前时间在任务的执行窗口内）
+   - 删除方式：软删除（设置 `status = 'deleted'` 和 `deleted_at` 时间戳）
+   - 删除原因：`executionNote = '目标已暂停'`
+
+5. **与完成目标的区别**：
+   - 完成目标时，任务被标记为 `skipped`（跳过）
+   - 暂停目标时，任务被标记为 `deleted`（软删除）
+   - 暂停的目标可以恢复，而完成的目标不可恢复
+
+#### 实现代码
+
+```dart
+/// 暂停目标
+///
+/// 将目标及其所有关联的计划和活跃任务标记为暂停/删除状态。
+/// 使用数据库事务确保操作的原子性。
+///
+/// 参数：
+/// - [goalId]: 要暂停的目标ID
+///
+/// 返回：
+/// - 更新后的目标对象
+///
+/// 异常：
+/// - [NotFoundException]: 目标不存在
+/// - [BusinessException]: 目标已暂停、已完成或已删除
+Future<GoalModel> pauseGoal(String goalId) async {
+  AppLogger.i('Pausing goal: $goalId', tag: 'GoalManagementService');
+
+  // 1. 获取并验证目标
+  final goal = await _goalRepository.getGoalById(goalId);
+  if (goal == null) {
+    throw const NotFoundException('目标不存在');
+  }
+
+  if (goal.status == GoalStatus.paused) {
+    throw const BusinessException('目标已暂停，无法重复暂停');
+  }
+
+  if (goal.status == GoalStatus.completed) {
+    throw const BusinessException('已完成的目标无法暂停');
+  }
+
+  if (goal.status == GoalStatus.deleted) {
+    throw const BusinessException('已删除的目标无法暂停');
+  }
+
+  // 2. 获取目标的所有计划
+  final plans = await _planRepository.getGoalPlans(goalId);
+  AppLogger.d('Found ${plans.length} plans for goal', tag: 'GoalManagementService');
+
+  // 3. 使用数据库事务确保原子性
+  final db = await AppDatabase.instance.database;
+
+  try {
+    await db.transaction((txn) async {
+      // 3.1 软删除所有计划中当前执行窗口内的活跃任务
+      for (final plan in plans) {
+        final tasks = await _taskRepository.getPlanTasks(plan.id);
+
+        // 筛选活跃且在当前执行窗口内的任务
+        final tasksToDelete = tasks.where((task) =>
+          task.status == TaskStatus.active && task.isInCurrentWindow
+        ).toList();
+
+        AppLogger.d('Deleting ${tasksToDelete.length} tasks for plan ${plan.name}', tag: 'GoalManagementService');
+
+        // 软删除这些任务
+        for (final task in tasksToDelete) {
+          await txn.update(
+            'tasks',
+            {
+              'status': TaskStatus.deleted.toDbString(),
+              'deleted_at': AppDatabase.getCurrentTimestamp(),
+              'execution_note': '目标已暂停',
+            },
+            where: 'id = ?',
+            whereArgs: [task.id],
+          );
+        }
+      }
+
+      // 3.2 更新所有计划为暂停状态
+      for (final plan in plans) {
+        if (plan.status != PlanStatus.deleted) {
+          await txn.update(
+            'plans',
+            {
+              'status': PlanStatus.paused.toDbString(),
+              'updated_at': AppDatabase.getCurrentTimestamp(),
+            },
+            where: 'id = ?',
+            whereArgs: [plan.id],
+          );
+        }
+      }
+
+      // 3.3 更新目标为暂停状态
+      await txn.update(
+        'goals',
+        {
+          'status': GoalStatus.paused.toDbString(),
+          'updated_at': AppDatabase.getCurrentTimestamp(),
+        },
+        where: 'id = ?',
+        whereArgs: [goalId],
+      );
+    });
+
+    AppLogger.i('Goal paused successfully', tag: 'GoalManagementService');
+  } catch (e) {
+    AppLogger.e('Failed to pause goal', tag: 'GoalManagementService', error: e);
+    throw BusinessException('暂停目标失败: ${e.toString()}');
+  }
+
+  // 4. 重新获取并返回更新后的目标
+  final updatedGoal = await _goalRepository.getGoalById(goalId);
+  if (updatedGoal == null) {
+    throw const NotFoundException('目标更新后未找到');
+  }
+
+  return updatedGoal;
+}
+```
+
+#### 使用示例
+
+```dart
+// 在目标列表页点击暂停按钮
+try {
+  final pausedGoal = await goalManagementService.pauseGoal(goalId);
+  print('目标"${pausedGoal.title}"已暂停');
+  // 刷新目标列表
+  ref.read(goalListProvider.notifier).loadGoals();
+} catch (e) {
+  // 显示错误消息
+  showErrorDialog('暂停目标失败: ${e.toString()}');
+}
+```
+
+#### 注意事项
+
+1. **数据一致性**：使用事务确保所有操作的原子性，避免出现部分更新的情况
+2. **软删除**：任务被软删除而非物理删除，保留历史记录用于审计
+3. **可恢复性**：暂停的目标可以恢复，恢复时会重新生成任务
+4. **任务删除**：只删除当前执行窗口内的活跃任务，已完成或已跳过的任务保持不变
+5. **计划状态**：所有非删除状态的计划都会被更新为暂停状态
+
 ## 7. 异常处理
 
 ### 7.1 业务异常定义

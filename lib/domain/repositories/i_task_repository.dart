@@ -79,6 +79,7 @@ abstract class ITaskRepository {
     required TaskStatus status,
     bool clearExecutionData = false,
     bool clearSkipData = false,
+    bool clearDeletedAt = false,
   });
 
   /// Get task statistics

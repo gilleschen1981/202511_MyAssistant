@@ -323,6 +323,7 @@ class TaskDao {
     TaskStatus newStatus, {
     bool clearExecutionData = false,
     bool clearSkipData = false,
+    bool clearDeletedAt = false,
   }) async {
     final db = await _database.database;
     final task = await getTaskById(taskId);
@@ -347,6 +348,12 @@ class TaskDao {
       updates['skipped_at'] = null;
     }
 
+    // Clear deleted_at if requested (for restoring deleted tasks)
+    if (clearDeletedAt) {
+      updates['deleted_at'] = null;
+      updates['execution_note'] = null;  // Clear pause reason
+    }
+
     await db.update(
       _tableTasks,
       updates,
@@ -359,9 +366,10 @@ class TaskDao {
       status: newStatus,
       actualDurationMinutes: clearExecutionData ? null : task.actualDurationMinutes,
       evaluationResult: clearExecutionData ? null : task.evaluationResult,
-      executionNote: (clearExecutionData || clearSkipData) ? null : task.executionNote,
+      executionNote: (clearExecutionData || clearSkipData || clearDeletedAt) ? null : task.executionNote,
       completedAt: clearExecutionData ? null : task.completedAt,
       skippedAt: clearSkipData ? null : task.skippedAt,
+      deletedAt: clearDeletedAt ? null : task.deletedAt,
     );
   }
 

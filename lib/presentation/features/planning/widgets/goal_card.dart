@@ -8,12 +8,16 @@ class GoalCard extends StatelessWidget {
   final GoalModel goal;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
+  final VoidCallback? onPause;
+  final VoidCallback? onResume;
 
   const GoalCard({
     super.key,
     required this.goal,
     this.onTap,
     this.onDelete,
+    this.onPause,
+    this.onResume,
   });
 
   @override
@@ -69,15 +73,22 @@ class GoalCard extends StatelessWidget {
                               Text(
                                 _formatDate(goal.deadline!),
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: _getDeadlineColor(context, goal.deadline!),
+                                  color: _getDeadlineColor(
+                                    context,
+                                    goal.deadline!,
+                                  ),
                                 ),
                               ),
-                              if (goal.daysRemaining != null && goal.daysRemaining! >= 0) ...[
+                              if (goal.daysRemaining != null &&
+                                  goal.daysRemaining! >= 0) ...[
                                 const SizedBox(width: 8),
                                 Text(
                                   '(${goal.daysRemaining} days)',
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: _getDeadlineColor(context, goal.deadline!),
+                                    color: _getDeadlineColor(
+                                      context,
+                                      goal.deadline!,
+                                    ),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -119,12 +130,16 @@ class GoalCard extends StatelessWidget {
                       icon: Icons.task_alt,
                       color: theme.colorScheme.tertiary,
                     ),
-                  ...goal.tags.take(3).map((tag) => _buildBadge(
-                        context: context,
-                        label: tag,
-                        icon: Icons.label,
-                        color: theme.colorScheme.primary,
-                      )),
+                  ...goal.tags
+                      .take(3)
+                      .map(
+                        (tag) => _buildBadge(
+                          context: context,
+                          label: tag,
+                          icon: Icons.label,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
                   if (goal.tags.length > 3)
                     _buildBadge(
                       context: context,
@@ -136,19 +151,62 @@ class GoalCard extends StatelessWidget {
               ),
 
               // Action buttons for active goals
-              if (isActive && onDelete != null) ...[
+              if (isActive && (onPause != null || onDelete != null)) ...[
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    TextButton.icon(
-                      onPressed: onDelete,
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      label: const Text('Delete'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: theme.colorScheme.error,
+                    if (onPause != null) ...[
+                      TextButton.icon(
+                        onPressed: onPause,
+                        icon: const Icon(Icons.pause_circle_outline, size: 18),
+                        label: const Text('Pause'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.orange,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                    ],
+                    if (onDelete != null)
+                      TextButton.icon(
+                        onPressed: onDelete,
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        label: const Text('Delete'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: theme.colorScheme.error,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+
+              // Action buttons for paused goals
+              if (goal.status == GoalStatus.paused &&
+                  (onResume != null || onDelete != null)) ...[
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (onResume != null) ...[
+                      TextButton.icon(
+                        onPressed: onResume,
+                        icon: const Icon(Icons.play_circle_outline, size: 18),
+                        label: const Text('Resume'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.green,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    if (onDelete != null)
+                      TextButton.icon(
+                        onPressed: onDelete,
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        label: const Text('Delete'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: theme.colorScheme.error,
+                        ),
+                      ),
                   ],
                 ),
               ],

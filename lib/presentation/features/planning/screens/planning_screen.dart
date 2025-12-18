@@ -61,9 +61,9 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.check_circle, size: 18),
+                    const Icon(Icons.inbox, size: 18),
                     const SizedBox(width: 8),
-                    Text('已完成 (${goalState.completedGoals.length})'),
+                    Text('未进行 (${goalState.inactiveGoals.length})'),
                   ],
                 ),
               ),
@@ -79,8 +79,8 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
               // Active goals
               _buildGoalList(goalState.activeGoals, GoalStatus.active),
 
-              // Completed goals
-              _buildGoalList(goalState.completedGoals, GoalStatus.completed),
+              // Inactive goals (completed + paused)
+              _buildInactiveGoalList(goalState.inactiveGoals),
             ],
           ),
         ),
@@ -108,7 +108,77 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
               // Navigate to goal detail page to show plans
               context.push('/goal/${goal.id}');
             },
+            onPause: filterStatus == GoalStatus.active
+                ? () => _pauseGoal(goal)
+                : null,
             onDelete: filterStatus != GoalStatus.completed
+                ? () => _deleteGoal(goal)
+                : null,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildInactiveGoalList(List<GoalModel> goals) {
+    if (goals.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.inbox,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                '没有未进行的目标',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '所有目标都在进行中！',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await ref.read(goalListProvider.notifier).loadGoals();
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: goals.length,
+        itemBuilder: (context, index) {
+          final goal = goals[index];
+          return GoalCard(
+            goal: goal,
+            onTap: () {
+              // Navigate to goal detail page to show plans
+              context.push('/goal/${goal.id}');
+            },
+            onResume: goal.status == GoalStatus.paused
+                ? () => _resumeGoal(goal)
+                : null,
+            onDelete: goal.status == GoalStatus.paused
                 ? () => _deleteGoal(goal)
                 : null,
           );
@@ -201,6 +271,80 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
     if (result == true && mounted) {
       // Reload goals after successful creation
       ref.read(goalListProvider.notifier).loadGoals();
+    }
+  }
+
+  Future<void> _resumeGoal(GoalModel goal) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('恢复目标'),
+        content: Text('确定要恢复目标 "${goal.title}" 吗？\n\n此操作将：\n• 将所有关联计划设置为进行中状态\n• 重新生成任务（在下次任务生成时）'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.green,
+            ),
+            child: const Text('恢复'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final result = await ref.read(goalListProvider.notifier).resumeGoal(goal.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result != null ? '目标已恢复' : '恢复失败'),
+            backgroundColor: result != null ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _pauseGoal(GoalModel goal) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('暂停目标'),
+        content: Text('确定要暂停目标 "${goal.title}" 吗？\n\n此操作将：\n• 将所有关联计划设置为暂停状态\n• 删除当前执行窗口内的活跃任务\n• 可以稍后恢复该目标'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.orange,
+            ),
+            child: const Text('暂停'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final result = await ref.read(goalListProvider.notifier).pauseGoal(goal.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result != null ? '目标已暂停' : '暂停失败'),
+            backgroundColor: result != null ? Colors.orange : Colors.red,
+          ),
+        );
+      }
     }
   }
 

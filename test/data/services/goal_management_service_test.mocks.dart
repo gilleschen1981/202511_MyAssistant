@@ -11,6 +11,7 @@ import 'package:myassistant/data/models/enums/status.dart' as _i8;
 import 'package:myassistant/data/models/goal_model.dart' as _i2;
 import 'package:myassistant/data/models/plan_model.dart' as _i3;
 import 'package:myassistant/data/models/task_model.dart' as _i4;
+import 'package:myassistant/data/services/task_generation_service.dart' as _i11;
 import 'package:myassistant/domain/repositories/i_goal_repository.dart' as _i5;
 import 'package:myassistant/domain/repositories/i_plan_repository.dart' as _i9;
 import 'package:myassistant/domain/repositories/i_task_repository.dart' as _i10;
@@ -735,6 +736,7 @@ class MockITaskRepository extends _i1.Mock implements _i10.ITaskRepository {
     required _i8.TaskStatus? status,
     bool? clearExecutionData = false,
     bool? clearSkipData = false,
+    bool? clearDeletedAt = false,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#updateTaskStatus, [], {
@@ -742,6 +744,7 @@ class MockITaskRepository extends _i1.Mock implements _i10.ITaskRepository {
               #status: status,
               #clearExecutionData: clearExecutionData,
               #clearSkipData: clearSkipData,
+              #clearDeletedAt: clearDeletedAt,
             }),
             returnValue: _i6.Future<_i4.TaskModel>.value(
               _FakeTaskModel_2(
@@ -751,6 +754,7 @@ class MockITaskRepository extends _i1.Mock implements _i10.ITaskRepository {
                   #status: status,
                   #clearExecutionData: clearExecutionData,
                   #clearSkipData: clearSkipData,
+                  #clearDeletedAt: clearDeletedAt,
                 }),
               ),
             ),
@@ -865,4 +869,50 @@ class MockITaskRepository extends _i1.Mock implements _i10.ITaskRepository {
             returnValue: _i6.Future<bool>.value(false),
           )
           as _i6.Future<bool>);
+}
+
+/// A class which mocks [TaskGenerationService].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockTaskGenerationService extends _i1.Mock
+    implements _i11.TaskGenerationService {
+  MockTaskGenerationService() {
+    _i1.throwOnMissingStub(this);
+  }
+
+  @override
+  _i6.Future<_i4.TaskModel?> generateNextTask(_i3.PlanModel? plan) =>
+      (super.noSuchMethod(
+            Invocation.method(#generateNextTask, [plan]),
+            returnValue: _i6.Future<_i4.TaskModel?>.value(),
+          )
+          as _i6.Future<_i4.TaskModel?>);
+
+  @override
+  _i6.Future<List<_i4.TaskModel>> generateAllPendingTasks(String? userId) =>
+      (super.noSuchMethod(
+            Invocation.method(#generateAllPendingTasks, [userId]),
+            returnValue: _i6.Future<List<_i4.TaskModel>>.value(
+              <_i4.TaskModel>[],
+            ),
+          )
+          as _i6.Future<List<_i4.TaskModel>>);
+
+  @override
+  _i6.Future<List<_i4.TaskModel>> generateTasksForDateRange(
+    String? userId,
+    DateTime? startDate,
+    DateTime? endDate,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#generateTasksForDateRange, [
+              userId,
+              startDate,
+              endDate,
+            ]),
+            returnValue: _i6.Future<List<_i4.TaskModel>>.value(
+              <_i4.TaskModel>[],
+            ),
+          )
+          as _i6.Future<List<_i4.TaskModel>>);
 }

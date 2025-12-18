@@ -13,15 +13,28 @@ final authenticationServiceProvider = Provider<AuthenticationService>((ref) {
   return AuthenticationService(userRepository: userRepository);
 });
 
+/// Task generation service provider
+/// Note: Defined before other services to avoid initialization issues
+final taskGenerationServiceProvider = Provider<TaskGenerationService>((ref) {
+  final taskRepository = ref.watch(taskRepositoryProvider);
+  final planRepository = ref.watch(planRepositoryProvider);
+  return TaskGenerationService(
+    taskRepository: taskRepository,
+    planRepository: planRepository,
+  );
+});
+
 /// Goal management service provider
 final goalManagementServiceProvider = Provider<GoalManagementService>((ref) {
   final goalRepository = ref.watch(goalRepositoryProvider);
   final planRepository = ref.watch(planRepositoryProvider);
   final taskRepository = ref.watch(taskRepositoryProvider);
+  final taskGenerationService = ref.watch(taskGenerationServiceProvider);
   return GoalManagementService(
     goalRepository: goalRepository,
     planRepository: planRepository,
     taskRepository: taskRepository,
+    generationService: taskGenerationService,
   );
 });
 
@@ -36,16 +49,6 @@ final planManagementServiceProvider = Provider<PlanManagementService>((ref) {
     goalRepository: goalRepository,
     taskRepository: taskRepository,
     generationService: taskGenerationService,
-  );
-});
-
-/// Task generation service provider
-final taskGenerationServiceProvider = Provider<TaskGenerationService>((ref) {
-  final taskRepository = ref.watch(taskRepositoryProvider);
-  final planRepository = ref.watch(planRepositoryProvider);
-  return TaskGenerationService(
-    taskRepository: taskRepository,
-    planRepository: planRepository,
   );
 });
 

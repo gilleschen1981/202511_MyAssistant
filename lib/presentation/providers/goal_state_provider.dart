@@ -13,14 +13,14 @@ import 'package:myassistant/core/utils/app_logger.dart';
 class GoalListState {
   final List<GoalModel> goals;
   final List<GoalModel> activeGoals;
-  final List<GoalModel> completedGoals;
+  final List<GoalModel> inactiveGoals; // Completed + Paused goals
   final bool isLoading;
   final String? error;
 
   const GoalListState({
     required this.goals,
     required this.activeGoals,
-    required this.completedGoals,
+    required this.inactiveGoals,
     required this.isLoading,
     this.error,
   });
@@ -29,7 +29,7 @@ class GoalListState {
     return const GoalListState(
       goals: [],
       activeGoals: [],
-      completedGoals: [],
+      inactiveGoals: [],
       isLoading: false,
     );
   }
@@ -37,14 +37,14 @@ class GoalListState {
   GoalListState copyWith({
     List<GoalModel>? goals,
     List<GoalModel>? activeGoals,
-    List<GoalModel>? completedGoals,
+    List<GoalModel>? inactiveGoals,
     bool? isLoading,
     String? error,
   }) {
     return GoalListState(
       goals: goals ?? this.goals,
       activeGoals: activeGoals ?? this.activeGoals,
-      completedGoals: completedGoals ?? this.completedGoals,
+      inactiveGoals: inactiveGoals ?? this.inactiveGoals,
       isLoading: isLoading ?? this.isLoading,
       error: error,
     );
@@ -82,15 +82,16 @@ class GoalListNotifier extends StateNotifier<GoalListState> {
           .where((g) => g.deletedAt == null && g.isActive)
           .toList();
 
-      // Filter completed goals
-      final completedGoalsList = goals
-          .where((g) => g.deletedAt == null && g.status == GoalStatus.completed)
+      // Filter inactive goals (completed + paused)
+      final inactiveGoalsList = goals
+          .where((g) => g.deletedAt == null &&
+                       (g.status == GoalStatus.completed || g.status == GoalStatus.paused))
           .toList();
 
       state = state.copyWith(
         goals: goals,
         activeGoals: activeGoalsList,
-        completedGoals: completedGoalsList,
+        inactiveGoals: inactiveGoalsList,
         isLoading: false,
       );
     } catch (e) {
@@ -231,6 +232,52 @@ class GoalListNotifier extends StateNotifier<GoalListState> {
     }
   }
 
+  /// Resume a paused goal and all associated plans
+  Future<GoalModel?> resumeGoal(String goalId) async {
+    AppLogger.i('Resuming goal: $goalId', tag: 'GoalListNotifier');
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      final resumedGoal = await _goalService.resumeGoal(goalId);
+      AppLogger.i('Goal resumed successfully', tag: 'GoalListNotifier');
+
+      // Reload goals
+      await loadGoals();
+
+      return resumedGoal;
+    } catch (e) {
+      AppLogger.e('Error resuming goal: $e', tag: 'GoalListNotifier', error: e);
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+      return null;
+    }
+  }
+
+  /// Pause goal and all associated plans and tasks
+  Future<GoalModel?> pauseGoal(String goalId) async {
+    AppLogger.i('Pausing goal: $goalId', tag: 'GoalListNotifier');
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      final pausedGoal = await _goalService.pauseGoal(goalId);
+      AppLogger.i('Goal paused successfully', tag: 'GoalListNotifier');
+
+      // Reload goals
+      await loadGoals();
+
+      return pausedGoal;
+    } catch (e) {
+      AppLogger.e('Error pausing goal: $e', tag: 'GoalListNotifier', error: e);
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+      return null;
+    }
+  }
+
   /// Complete goal and all associated plans and tasks
   Future<GoalModel?> completeGoal(String goalId) async {
     AppLogger.i('Completing goal: $goalId', tag: 'GoalListNotifier');
@@ -293,10 +340,10 @@ final activeGoalsProvider = Provider<List<GoalModel>>((ref) {
   return goalState.activeGoals;
 });
 
-/// Completed goals provider
-final completedGoalsProvider = Provider<List<GoalModel>>((ref) {
+/// Inactive goals provider (completed + paused)
+final inactiveGoalsProvider = Provider<List<GoalModel>>((ref) {
   final goalState = ref.watch(goalListProvider);
-  return goalState.completedGoals;
+  return goalState.inactiveGoals;
 });
 
 /// Selected goal provider
