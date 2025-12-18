@@ -7,14 +7,12 @@ import 'package:myassistant/data/models/enums/priority.dart';
 class GoalCard extends StatelessWidget {
   final GoalModel goal;
   final VoidCallback? onTap;
-  final Function(GoalStatus)? onStatusChange;
   final VoidCallback? onDelete;
 
   const GoalCard({
     super.key,
     required this.goal,
     this.onTap,
-    this.onStatusChange,
     this.onDelete,
   });
 
@@ -138,27 +136,19 @@ class GoalCard extends StatelessWidget {
               ),
 
               // Action buttons for active goals
-              if (isActive) ...[
+              if (isActive && onDelete != null) ...[
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    if (onDelete != null)
-                      TextButton.icon(
-                        onPressed: onDelete,
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        label: const Text('Delete'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: theme.colorScheme.error,
-                        ),
+                    TextButton.icon(
+                      onPressed: onDelete,
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: const Text('Delete'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: theme.colorScheme.error,
                       ),
-                    const SizedBox(width: 8),
-                    if (onStatusChange != null)
-                      FilledButton.icon(
-                        onPressed: () => onStatusChange!(GoalStatus.completed),
-                        icon: const Icon(Icons.check, size: 18),
-                        label: const Text('Complete'),
-                      ),
+                    ),
                   ],
                 ),
               ],

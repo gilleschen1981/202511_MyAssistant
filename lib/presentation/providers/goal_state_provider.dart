@@ -231,6 +231,29 @@ class GoalListNotifier extends StateNotifier<GoalListState> {
     }
   }
 
+  /// Complete goal and all associated plans and tasks
+  Future<GoalModel?> completeGoal(String goalId) async {
+    AppLogger.i('Completing goal: $goalId', tag: 'GoalListNotifier');
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      final completedGoal = await _goalService.completeGoal(goalId);
+      AppLogger.i('Goal completed successfully', tag: 'GoalListNotifier');
+
+      // Reload goals
+      await loadGoals();
+
+      return completedGoal;
+    } catch (e) {
+      AppLogger.e('Error completing goal: $e', tag: 'GoalListNotifier', error: e);
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+      return null;
+    }
+  }
+
   /// Get goal progress
   Future<GoalStatistics?> getGoalProgress(String goalId) async {
     try {

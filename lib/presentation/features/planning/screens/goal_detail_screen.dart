@@ -4,6 +4,7 @@ import 'package:myassistant/data/models/goal_model.dart';
 import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/presentation/providers/plan_state_provider.dart';
+import 'package:myassistant/presentation/providers/goal_state_provider.dart';
 import 'package:myassistant/presentation/features/planning/widgets/plan_card.dart';
 import 'package:myassistant/presentation/features/planning/widgets/edit_goal_dialog.dart';
 import 'package:myassistant/presentation/features/planning/widgets/create_plan_dialog.dart';
@@ -50,6 +51,13 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
       appBar: AppBar(
         title: const Text('目标详情'),
         actions: [
+          // Show Complete button only for active or paused goals
+          if (_currentGoal.status == GoalStatus.active || _currentGoal.status == GoalStatus.paused)
+            IconButton(
+              icon: const Icon(Icons.check_circle),
+              tooltip: '完成目标',
+              onPressed: () => _confirmCompleteGoal(),
+            ),
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () => _showEditGoalDialog(),
@@ -441,6 +449,76 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
         return '已完成';
       case GoalStatus.deleted:
         return '已删除';
+    }
+  }
+
+  Future<void> _confirmCompleteGoal() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('完成目标'),
+        content: Text(
+          '确定要完成目标"${_currentGoal.title}"吗？\n\n'
+          '这将会：\n'
+          '• 跳过所有计划中当前执行窗口内的活跃任务\n'
+          '• 将所有计划标记为已完成\n'
+          '• 将目标标记为已完成\n\n'
+          '此操作不可撤销。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确认完成'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      try {
+        final completedGoal = await ref.read(goalListProvider.notifier).completeGoal(_currentGoal.id);
+
+        if (mounted) {
+          // Close loading indicator
+          Navigator.pop(context);
+
+          if (completedGoal != null) {
+            // Show success message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('目标"${_currentGoal.title}"已完成')),
+            );
+            // Navigate back to goal list
+            Navigator.pop(context);
+          } else {
+            // Show error message
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('完成目标失败，请重试')),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          // Close loading indicator
+          Navigator.pop(context);
+          // Show error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('完成目标失败: ${e.toString()}')),
+          );
+        }
+      }
     }
   }
 }

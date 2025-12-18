@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:myassistant/data/models/goal_model.dart';
+import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/data/models/enums/priority.dart';
 import 'package:myassistant/domain/repositories/i_goal_repository.dart';
@@ -480,6 +481,146 @@ class GoalManagementService {
     });
 
     return approachingGoals;
+  }
+
+  /// Complete a goal
+  ///
+  /// Marks a goal and all its associated plans and active tasks as completed.
+  /// Uses database transaction to ensure atomicity.
+  ///
+  /// Parameters:
+  /// - [goalId]: The ID of the goal to complete
+  ///
+  /// Returns:
+  /// - The updated goal object
+  ///
+  /// Throws:
+  /// - [NotFoundException]: Goal not found
+  /// - [BusinessException]: Goal is already completed or deleted
+  Future<GoalModel> completeGoal(String goalId) async {
+    AppLogger.i('Completing goal: $goalId', tag: 'GoalManagementService');
+
+    // 1. Get and validate goal
+    final goal = await _goalRepository.getGoalById(goalId);
+    if (goal == null) {
+      throw const NotFoundException('Goal not found');
+    }
+
+    AppLogger.d('Goal status BEFORE: ${goal.status}', tag: 'GoalManagementService');
+
+    if (goal.status == GoalStatus.completed) {
+      throw const BusinessException('Goal is already completed');
+    }
+
+    if (goal.status == GoalStatus.deleted) {
+      throw const BusinessException('Deleted goal cannot be completed');
+    }
+
+    // 2. Get all plans for this goal
+    final plans = await _planRepository.getGoalPlans(goalId);
+    AppLogger.d('Found ${plans.length} plans for goal', tag: 'GoalManagementService');
+
+    // 3. Get all tasks for all plans (before transaction)
+    final Map<String, List<TaskModel>> planTasksMap = {};
+    for (final plan in plans) {
+      final tasks = await _taskRepository.getPlanTasks(plan.id);
+      planTasksMap[plan.id] = tasks;
+    }
+
+    // 4. Use database transaction to ensure atomicity
+    final db = await AppDatabase.instance.database;
+    AppLogger.d('Starting database transaction...', tag: 'GoalManagementService');
+
+    try {
+      await db.transaction((txn) async {
+        AppLogger.d('Inside transaction', tag: 'GoalManagementService');
+
+        // 4.1 Skip all active tasks in current execution window for all plans
+        int totalTasksSkipped = 0;
+        for (final plan in plans) {
+          final tasks = planTasksMap[plan.id] ?? [];
+
+          // Filter active tasks in current execution window
+          final tasksToSkip = tasks.where((task) =>
+            task.status == TaskStatus.active && task.isInCurrentWindow
+          ).toList();
+
+          AppLogger.d('Skipping ${tasksToSkip.length} tasks for plan ${plan.name}', tag: 'GoalManagementService');
+
+          // Skip these tasks
+          for (final task in tasksToSkip) {
+            final rowsAffected = await txn.update(
+              'tasks',
+              {
+                'status': TaskStatus.skipped.toDbString(),
+                'skipped_at': AppDatabase.getCurrentTimestamp(),
+                'execution_note': '目标已完成',
+              },
+              where: 'id = ?',
+              whereArgs: [task.id],
+            );
+            totalTasksSkipped += rowsAffected;
+            AppLogger.d('Skipped task ${task.id}, rows affected: $rowsAffected', tag: 'GoalManagementService');
+          }
+        }
+        AppLogger.d('Total tasks skipped: $totalTasksSkipped', tag: 'GoalManagementService');
+
+        // 4.2 Update all plans to completed status
+        int totalPlansUpdated = 0;
+        for (final plan in plans) {
+          if (plan.status != PlanStatus.deleted) {
+            final rowsAffected = await txn.update(
+              'plans',
+              {
+                'status': PlanStatus.completed.toDbString(),
+                'updated_at': AppDatabase.getCurrentTimestamp(),
+              },
+              where: 'id = ?',
+              whereArgs: [plan.id],
+            );
+            totalPlansUpdated += rowsAffected;
+            AppLogger.d('Updated plan ${plan.id} (${plan.name}), rows affected: $rowsAffected', tag: 'GoalManagementService');
+          }
+        }
+        AppLogger.d('Total plans updated: $totalPlansUpdated', tag: 'GoalManagementService');
+
+        // 4.3 Update goal to completed status
+        final completedStatus = GoalStatus.completed.toDbString();
+        AppLogger.d('Updating goal to status: $completedStatus', tag: 'GoalManagementService');
+
+        final goalRowsAffected = await txn.update(
+          'goals',
+          {
+            'status': completedStatus,
+            'updated_at': AppDatabase.getCurrentTimestamp(),
+          },
+          where: 'id = ?',
+          whereArgs: [goalId],
+        );
+        AppLogger.d('Goal update rows affected: $goalRowsAffected', tag: 'GoalManagementService');
+
+        if (goalRowsAffected == 0) {
+          AppLogger.w('WARNING: Goal update affected 0 rows!', tag: 'GoalManagementService');
+        }
+      });
+
+      AppLogger.i('Transaction completed successfully', tag: 'GoalManagementService');
+    } catch (e) {
+      AppLogger.e('Failed to complete goal', tag: 'GoalManagementService', error: e);
+      throw BusinessException('完成目标失败: ${e.toString()}');
+    }
+
+    // 5. Re-query and return updated goal
+    AppLogger.d('Re-querying goal from database...', tag: 'GoalManagementService');
+    final updatedGoal = await _goalRepository.getGoalById(goalId);
+    if (updatedGoal == null) {
+      throw const NotFoundException('Goal not found after update');
+    }
+
+    AppLogger.d('Goal status AFTER: ${updatedGoal.status}', tag: 'GoalManagementService');
+    AppLogger.i('Goal completed successfully', tag: 'GoalManagementService');
+
+    return updatedGoal;
   }
 
   /// Validate goal input

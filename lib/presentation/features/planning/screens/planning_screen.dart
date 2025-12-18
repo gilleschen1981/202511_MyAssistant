@@ -108,9 +108,6 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
               // Navigate to goal detail page to show plans
               context.push('/goal/${goal.id}');
             },
-            onStatusChange: filterStatus != GoalStatus.completed
-                ? (newStatus) => _updateGoalStatus(goal, newStatus)
-                : null,
             onDelete: filterStatus != GoalStatus.completed
                 ? () => _deleteGoal(goal)
                 : null,
@@ -204,21 +201,6 @@ class _PlanningScreenState extends ConsumerState<PlanningScreen>
     if (result == true && mounted) {
       // Reload goals after successful creation
       ref.read(goalListProvider.notifier).loadGoals();
-    }
-  }
-
-  Future<void> _updateGoalStatus(GoalModel goal, GoalStatus newStatus) async {
-    if (newStatus == GoalStatus.completed) {
-      await ref.read(goalListProvider.notifier).archiveGoal(goal.id);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('目标已完成'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
     }
   }
 

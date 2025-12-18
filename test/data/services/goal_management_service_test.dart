@@ -12,11 +12,17 @@ import 'package:myassistant/domain/repositories/i_goal_repository.dart';
 import 'package:myassistant/domain/repositories/i_plan_repository.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
 import 'package:myassistant/core/errors/exceptions.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'goal_management_service_test.mocks.dart';
 
 @GenerateMocks([IGoalRepository, IPlanRepository, ITaskRepository])
 void main() {
+  // Initialize sqflite ffi for testing
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  });
   late GoalManagementService service;
   late MockIGoalRepository mockGoalRepository;
   late MockIPlanRepository mockPlanRepository;
@@ -789,6 +795,232 @@ void main() {
 
       // Assert
       expect(result.isEmpty, true);
+    });
+  });
+
+  group('GoalManagementService - completeGoal', () {
+    test('should successfully complete goal with active tasks in current window', () async {
+      // Arrange
+      const goalId = 'goal-123';
+      final goal = createTestGoal(id: goalId, status: GoalStatus.active);
+      final completedGoal = createTestGoal(id: goalId, status: GoalStatus.completed);
+      final plan1 = createTestPlan(id: 'plan-1', goalId: goalId, status: PlanStatus.active);
+      final plan2 = createTestPlan(id: 'plan-2', goalId: goalId, status: PlanStatus.active);
+
+      final now = DateTime.now();
+      final activeTaskInWindow = TaskModel(
+        id: 'task-1',
+        userId: 'user-123',
+        planId: 'plan-1',
+        name: 'Active Task',
+        config: const TaskConfiguration(),
+        windowStartTime: now.subtract(const Duration(hours: 1)),
+        windowEndTime: now.add(const Duration(hours: 23)),
+        status: TaskStatus.active,
+        createdAt: now,
+      );
+
+      final completedTask = createTestTask(
+        id: 'task-2',
+        planId: 'plan-1',
+        status: TaskStatus.completed,
+      );
+
+      // Setup sequential responses using a call counter
+      var getGoalCallCount = 0;
+      when(mockGoalRepository.getGoalById(goalId)).thenAnswer((_) async {
+        getGoalCallCount++;
+        return getGoalCallCount == 1 ? goal : completedGoal;
+      });
+      when(mockPlanRepository.getGoalPlans(goalId))
+          .thenAnswer((_) async => [plan1, plan2]);
+      when(mockTaskRepository.getPlanTasks('plan-1'))
+          .thenAnswer((_) async => [activeTaskInWindow, completedTask]);
+      when(mockTaskRepository.getPlanTasks('plan-2'))
+          .thenAnswer((_) async => []);
+
+      // Act
+      final result = await service.completeGoal(goalId);
+
+      // Assert
+      expect(result.status, GoalStatus.completed);
+      verify(mockGoalRepository.getGoalById(goalId)).called(2);
+      verify(mockPlanRepository.getGoalPlans(goalId)).called(1);
+      verify(mockTaskRepository.getPlanTasks('plan-1')).called(1);
+      verify(mockTaskRepository.getPlanTasks('plan-2')).called(1);
+    });
+
+    test('should throw NotFoundException if goal does not exist', () async {
+      // Arrange
+      const goalId = 'non-existent';
+      when(mockGoalRepository.getGoalById(goalId))
+          .thenAnswer((_) async => null);
+
+      // Act & Assert
+      expect(
+        () => service.completeGoal(goalId),
+        throwsA(isA<NotFoundException>()),
+      );
+    });
+
+    test('should throw BusinessException if goal is already completed', () async {
+      // Arrange
+      const goalId = 'goal-123';
+      final completedGoal = createTestGoal(
+        id: goalId,
+        status: GoalStatus.completed,
+      );
+
+      when(mockGoalRepository.getGoalById(goalId))
+          .thenAnswer((_) async => completedGoal);
+
+      // Act & Assert
+      expect(
+        () => service.completeGoal(goalId),
+        throwsA(isA<BusinessException>()),
+      );
+    });
+
+    test('should throw BusinessException if goal is deleted', () async {
+      // Arrange
+      const goalId = 'goal-123';
+      final deletedGoal = createTestGoal(
+        id: goalId,
+        status: GoalStatus.deleted,
+      );
+
+      when(mockGoalRepository.getGoalById(goalId))
+          .thenAnswer((_) async => deletedGoal);
+
+      // Act & Assert
+      expect(
+        () => service.completeGoal(goalId),
+        throwsA(isA<BusinessException>()),
+      );
+    });
+
+    test('should complete goal with no plans', () async {
+      // Arrange
+      const goalId = 'goal-123';
+      final goal = createTestGoal(id: goalId, status: GoalStatus.active);
+      final completedGoal = createTestGoal(id: goalId, status: GoalStatus.completed);
+
+      // Setup sequential responses using a call counter
+      var getGoalCallCount = 0;
+      when(mockGoalRepository.getGoalById(goalId)).thenAnswer((_) async {
+        getGoalCallCount++;
+        return getGoalCallCount == 1 ? goal : completedGoal;
+      });
+      when(mockPlanRepository.getGoalPlans(goalId))
+          .thenAnswer((_) async => []);
+
+      // Act
+      final result = await service.completeGoal(goalId);
+
+      // Assert
+      expect(result.status, GoalStatus.completed);
+      verify(mockPlanRepository.getGoalPlans(goalId)).called(1);
+    });
+
+    test('should skip only active tasks in current execution window', () async {
+      // Arrange
+      const goalId = 'goal-123';
+      final goal = createTestGoal(id: goalId, status: GoalStatus.active);
+      final completedGoal = createTestGoal(id: goalId, status: GoalStatus.completed);
+      final plan = createTestPlan(goalId: goalId, status: PlanStatus.active);
+
+      final now = DateTime.now();
+
+      // Active task in current window - should be skipped
+      final activeTaskInWindow = TaskModel(
+        id: 'task-1',
+        userId: 'user-123',
+        planId: plan.id,
+        name: 'Active Task In Window',
+        config: const TaskConfiguration(),
+        windowStartTime: now.subtract(const Duration(hours: 1)),
+        windowEndTime: now.add(const Duration(hours: 23)),
+        status: TaskStatus.active,
+        createdAt: now,
+      );
+
+      // Active task outside current window - should NOT be skipped
+      final activeTaskOutsideWindow = TaskModel(
+        id: 'task-2',
+        userId: 'user-123',
+        planId: plan.id,
+        name: 'Active Task Outside Window',
+        config: const TaskConfiguration(),
+        windowStartTime: now.add(const Duration(days: 1)),
+        windowEndTime: now.add(const Duration(days: 2)),
+        status: TaskStatus.active,
+        createdAt: now,
+      );
+
+      // Completed task - should NOT be skipped
+      final completedTask = createTestTask(
+        id: 'task-3',
+        planId: plan.id,
+        status: TaskStatus.completed,
+      );
+
+      // Setup sequential responses using a call counter
+      var getGoalCallCount = 0;
+      when(mockGoalRepository.getGoalById(goalId)).thenAnswer((_) async {
+        getGoalCallCount++;
+        return getGoalCallCount == 1 ? goal : completedGoal;
+      });
+      when(mockPlanRepository.getGoalPlans(goalId))
+          .thenAnswer((_) async => [plan]);
+      when(mockTaskRepository.getPlanTasks(plan.id))
+          .thenAnswer((_) async => [activeTaskInWindow, activeTaskOutsideWindow, completedTask]);
+
+      // Act
+      final result = await service.completeGoal(goalId);
+
+      // Assert
+      expect(result.status, GoalStatus.completed);
+      // Verify only one task (activeTaskInWindow) was considered for skipping
+      verify(mockTaskRepository.getPlanTasks(plan.id)).called(1);
+    });
+
+    test('should not update deleted plans when completing goal', () async {
+      // Arrange
+      const goalId = 'goal-123';
+      final goal = createTestGoal(id: goalId, status: GoalStatus.active);
+      final completedGoal = createTestGoal(id: goalId, status: GoalStatus.completed);
+      final activePlan = createTestPlan(
+        id: 'plan-1',
+        goalId: goalId,
+        status: PlanStatus.active,
+      );
+      final deletedPlan = createTestPlan(
+        id: 'plan-2',
+        goalId: goalId,
+        status: PlanStatus.deleted,
+      );
+
+      // Setup sequential responses using a call counter
+      var getGoalCallCount = 0;
+      when(mockGoalRepository.getGoalById(goalId)).thenAnswer((_) async {
+        getGoalCallCount++;
+        return getGoalCallCount == 1 ? goal : completedGoal;
+      });
+      when(mockPlanRepository.getGoalPlans(goalId))
+          .thenAnswer((_) async => [activePlan, deletedPlan]);
+      when(mockTaskRepository.getPlanTasks('plan-1'))
+          .thenAnswer((_) async => []);
+      when(mockTaskRepository.getPlanTasks('plan-2'))
+          .thenAnswer((_) async => []);
+
+      // Act
+      final result = await service.completeGoal(goalId);
+
+      // Assert
+      expect(result.status, GoalStatus.completed);
+      // Both plans should be queried for tasks
+      verify(mockTaskRepository.getPlanTasks('plan-1')).called(1);
+      verify(mockTaskRepository.getPlanTasks('plan-2')).called(1);
     });
   });
 }

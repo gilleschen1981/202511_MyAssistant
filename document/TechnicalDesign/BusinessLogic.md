@@ -1400,6 +1400,166 @@ class PlanManagementService {
 }
 ```
 
+### 6.3 完成目标 (Complete Goal)
+
+#### 功能描述
+用户可以在目标详情页面点击"完成"按钮来完成一个目标。完成目标会自动处理所有关联的计划和任务，确保数据一致性。
+
+#### 业务规则
+1. **前置条件**：
+   - 只有状态为 `active` 或 `paused` 的目标可以被完成
+   - 已删除的目标不能被完成
+   - 已完成的目标不能重复完成
+
+2. **完成操作**（原子性事务）：
+   - 将该目标下所有计划中的活跃任务（在当前执行窗口内）标记为 `skipped`
+   - 将该目标下的所有计划状态更新为 `completed`
+   - 将目标状态更新为 `completed`
+
+3. **事务保证**：
+   - 使用数据库事务确保所有操作要么全部成功，要么全部回滚
+   - 任何步骤失败都会导致整个操作回滚，保持数据一致性
+
+4. **任务跳过逻辑**：
+   - 只跳过满足以下条件的任务：
+     - `task.status == TaskStatus.active`
+     - `task.isInCurrentWindow == true`（当前时间在任务的执行窗口内）
+   - 跳过原因：`executionNote = '目标已完成'`
+
+#### 实现代码
+
+```dart
+/// 完成目标
+///
+/// 将目标及其所有关联的计划和活跃任务标记为完成状态。
+/// 使用数据库事务确保操作的原子性。
+///
+/// 参数：
+/// - [goalId]: 要完成的目标ID
+///
+/// 返回：
+/// - 更新后的目标对象
+///
+/// 异常：
+/// - [NotFoundException]: 目标不存在
+/// - [BusinessException]: 目标已完成或已删除
+Future<GoalModel> completeGoal(String goalId) async {
+  AppLogger.i('Completing goal: $goalId', tag: 'GoalManagementService');
+
+  // 1. 获取并验证目标
+  final goal = await _goalRepository.getGoalById(goalId);
+  if (goal == null) {
+    throw const NotFoundException('目标不存在');
+  }
+
+  if (goal.status == GoalStatus.completed) {
+    throw const BusinessException('目标已完成，无法重复完成');
+  }
+
+  if (goal.status == GoalStatus.deleted) {
+    throw const BusinessException('已删除的目标无法完成');
+  }
+
+  // 2. 获取目标的所有计划
+  final plans = await _planRepository.getGoalPlans(goalId);
+  AppLogger.d('Found ${plans.length} plans for goal', tag: 'GoalManagementService');
+
+  // 3. 使用数据库事务确保原子性
+  final db = await AppDatabase.instance.database;
+
+  try {
+    await db.transaction((txn) async {
+      // 3.1 跳过所有计划中当前执行窗口内的活跃任务
+      for (final plan in plans) {
+        final tasks = await _taskRepository.getPlanTasks(plan.id);
+
+        // 筛选活跃且在当前执行窗口内的任务
+        final tasksToSkip = tasks.where((task) =>
+          task.status == TaskStatus.active && task.isInCurrentWindow
+        ).toList();
+
+        AppLogger.d('Skipping ${tasksToSkip.length} tasks for plan ${plan.name}', tag: 'GoalManagementService');
+
+        // 跳过这些任务
+        for (final task in tasksToSkip) {
+          await txn.update(
+            'tasks',
+            {
+              'status': TaskStatus.skipped.toDbString(),
+              'skipped_at': AppDatabase.getCurrentTimestamp(),
+              'execution_note': '目标已完成',
+            },
+            where: 'id = ?',
+            whereArgs: [task.id],
+          );
+        }
+      }
+
+      // 3.2 更新所有计划为已完成状态
+      for (final plan in plans) {
+        if (plan.status != PlanStatus.deleted) {
+          await txn.update(
+            'plans',
+            {
+              'status': PlanStatus.completed.toDbString(),
+              'updated_at': AppDatabase.getCurrentTimestamp(),
+            },
+            where: 'id = ?',
+            whereArgs: [plan.id],
+          );
+        }
+      }
+
+      // 3.3 更新目标为已完成状态
+      await txn.update(
+        'goals',
+        {
+          'status': GoalStatus.completed.toDbString(),
+          'updated_at': AppDatabase.getCurrentTimestamp(),
+        },
+        where: 'id = ?',
+        whereArgs: [goalId],
+      );
+    });
+
+    AppLogger.i('Goal completed successfully', tag: 'GoalManagementService');
+  } catch (e) {
+    AppLogger.e('Failed to complete goal', tag: 'GoalManagementService', error: e);
+    throw BusinessException('完成目标失败: ${e.toString()}');
+  }
+
+  // 4. 重新获取并返回更新后的目标
+  final updatedGoal = await _goalRepository.getGoalById(goalId);
+  if (updatedGoal == null) {
+    throw const NotFoundException('目标更新后未找到');
+  }
+
+  return updatedGoal;
+}
+```
+
+#### 使用示例
+
+```dart
+// 在目标详情页点击完成按钮
+try {
+  final completedGoal = await goalManagementService.completeGoal(goalId);
+  print('目标"${completedGoal.title}"已完成');
+  // 导航回目标列表
+  Navigator.pop(context);
+} catch (e) {
+  // 显示错误消息
+  showErrorDialog('完成目标失败: ${e.toString()}');
+}
+```
+
+#### 注意事项
+
+1. **数据一致性**：使用事务确保所有操作的原子性，避免出现部分更新的情况
+2. **性能考虑**：对于拥有大量计划和任务的目标，完成操作可能需要较长时间，建议在UI显示加载指示器
+3. **不可逆操作**：目标完成后，相关的计划将不再生成新任务
+4. **任务跳过**：只跳过当前执行窗口内的活跃任务，已完成或已跳过的任务保持不变
+
 ## 7. 异常处理
 
 ### 7.1 业务异常定义
