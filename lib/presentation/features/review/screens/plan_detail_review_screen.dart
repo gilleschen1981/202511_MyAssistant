@@ -5,6 +5,7 @@ import 'package:myassistant/data/models/task_model.dart';
 import 'package:intl/intl.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/presentation/features/review/widgets/completion_rate_trend_chart.dart';
+import 'package:myassistant/data/models/plan_review_model.dart';
 
 /// Plan Detail Review Screen - shows detailed history and statistics for a plan
 class PlanDetailReviewScreen extends ConsumerStatefulWidget {
@@ -96,7 +97,7 @@ class _PlanDetailReviewScreenState
     );
   }
 
-  Widget _buildOverviewTab(BuildContext context, dynamic review) {
+  Widget _buildOverviewTab(BuildContext context, PlanReviewModel review) {
     final plan = review.plan;
     final stats = review.statistics;
     final theme = Theme.of(context);
@@ -271,7 +272,7 @@ class _PlanDetailReviewScreenState
     );
   }
 
-  Widget _buildTaskHistoryTab(BuildContext context, dynamic review) {
+  Widget _buildTaskHistoryTab(BuildContext context, PlanReviewModel review) {
     final tasksByDate = review.tasksByDate;
     final theme = Theme.of(context);
 
@@ -304,7 +305,7 @@ class _PlanDetailReviewScreenState
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  DateFormat('yyyy年MM月dd日 EEEE', 'zh_CN').format(date),
+                  DateFormat('yyyy年MM月dd日').format(date),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -365,7 +366,7 @@ class _PlanDetailReviewScreenState
     );
   }
 
-  Widget _buildStatisticsTab(BuildContext context, dynamic review) {
+  Widget _buildStatisticsTab(BuildContext context, PlanReviewModel review) {
     final theme = Theme.of(context);
 
     return SingleChildScrollView(
