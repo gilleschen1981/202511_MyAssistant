@@ -151,7 +151,7 @@ if [ "$GOAL_ID" = "all" ]; then
     OUTPUT_FILE="${OUTPUT_DIR}/all_templates_${TIMESTAMP}.json"
     TEMPLATE_NAME="All Goals and Plans"
 
-    # Export all goals
+    # Export all goals (exclude time fields as they will be set during import)
     GOALS_JSON=$(sqlite3 "$TEMP_DB" <<EOF
 SELECT json_group_array(
     json_object(
@@ -160,7 +160,6 @@ SELECT json_group_array(
         'priority', priority,
         'tags', json(tags),
         'status', status,
-        'deadline', deadline,
         'successCriteria', success_criteria
     )
 )
@@ -169,15 +168,13 @@ WHERE user_id = '$USER_ID' AND status != 'deleted';
 EOF
 )
 
-    # Export all plans
+    # Export all plans (exclude time fields as they will be set during import)
     PLANS_JSON=$(sqlite3 "$TEMP_DB" <<EOF
 SELECT json_group_array(
     json_object(
         'goal_title', (SELECT title FROM goals WHERE id = plans.goal_id),
         'name', name,
         'description', description,
-        'startDate', start_date,
-        'endDate', end_date,
         'status', status,
         'repeatRule', json_object('type', repeat_type, 'customDays', custom_days),
         'taskConfig', json(task_config)
@@ -194,7 +191,7 @@ else
     OUTPUT_FILE="${OUTPUT_DIR}/${OUTPUT_NAME}_${TIMESTAMP}.json"
     TEMPLATE_NAME="${GOAL_TITLE}"
 
-    # Export single goal
+    # Export single goal (exclude time fields as they will be set during import)
     GOALS_JSON=$(sqlite3 "$TEMP_DB" <<EOF
 SELECT json_group_array(
     json_object(
@@ -203,7 +200,6 @@ SELECT json_group_array(
         'priority', priority,
         'tags', json(tags),
         'status', status,
-        'deadline', deadline,
         'successCriteria', success_criteria
     )
 )
@@ -212,15 +208,13 @@ WHERE id = '$GOAL_ID';
 EOF
 )
 
-    # Export plans for this goal
+    # Export plans for this goal (exclude time fields as they will be set during import)
     PLANS_JSON=$(sqlite3 "$TEMP_DB" <<EOF
 SELECT json_group_array(
     json_object(
         'goal_index', 0,
         'name', name,
         'description', description,
-        'startDate', start_date,
-        'endDate', end_date,
         'status', status,
         'repeatRule', json_object('type', repeat_type, 'customDays', custom_days),
         'taskConfig', json(task_config)

@@ -170,6 +170,15 @@ sql_escape() {
 # Get current timestamp in milliseconds
 TIMESTAMP=$(date +%s)000
 
+# Default timestamps for template imports
+# Use current time (in seconds, not milliseconds) for startDate
+IMPORT_START_DATE=$(date +%s)
+
+# Use a far future date for endDate and deadline (2050-01-01)
+# This is approximately 2524608000 seconds since epoch (Jan 1, 2050)
+DEFAULT_END_DATE=2524608000
+DEFAULT_DEADLINE=2524608000
+
 # Parse and import goals
 GOAL_INDEX=0
 declare -a GOAL_ID_MAP  # Array to map index to new goal ID
@@ -186,7 +195,6 @@ while read -r goal_json; do
     PRIORITY=$(echo "$goal_json" | jq -r '.priority // "medium"')
     TAGS=$(echo "$goal_json" | jq -c '.tags // []')
     STATUS=$(echo "$goal_json" | jq -r '.status // "active"')
-    DEADLINE=$(echo "$goal_json" | jq -r '.deadline // ""')
     SUCCESS_CRITERIA=$(echo "$goal_json" | jq -r '.successCriteria // ""')
 
     # Escape values for SQL
@@ -194,12 +202,8 @@ while read -r goal_json; do
     DESCRIPTION=$(sql_escape "$DESCRIPTION")
     SUCCESS_CRITERIA=$(sql_escape "$SUCCESS_CRITERIA")
 
-    # Build INSERT statement
-    if [ -z "$DEADLINE" ] || [ "$DEADLINE" = "null" ]; then
-        DEADLINE_VAL="NULL"
-    else
-        DEADLINE_VAL="'$DEADLINE'"
-    fi
+    # Use default deadline for templates (far future date)
+    DEADLINE_VAL="$DEFAULT_DEADLINE"
 
     # Insert into database
     sqlite3 "$TEMP_DB" <<EOF
@@ -225,9 +229,11 @@ while read -r plan_json; do
     GOAL_TITLE=$(echo "$plan_json" | jq -r '.goal_title // ""')
     NAME=$(echo "$plan_json" | jq -r '.name')
     DESCRIPTION=$(echo "$plan_json" | jq -r '.description // ""')
-    START_DATE=$(echo "$plan_json" | jq -r '.startDate // ""')
-    END_DATE=$(echo "$plan_json" | jq -r '.endDate // ""')
     STATUS=$(echo "$plan_json" | jq -r '.status // "active"')
+
+    # Use import time for startDate and far future for endDate
+    START_DATE="$IMPORT_START_DATE"
+    END_DATE="$DEFAULT_END_DATE"
 
     # Extract repeat rule components
     REPEAT_TYPE=$(echo "$plan_json" | jq -r '.repeatRule.type // "oneTime"')
