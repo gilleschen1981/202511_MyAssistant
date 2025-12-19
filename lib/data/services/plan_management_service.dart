@@ -70,52 +70,84 @@ class PlanManagementService {
     required RepeatRule repeatRule,
     required TaskConfiguration taskConfig,
   }) async {
-    // 1. Validate goal exists
-    final goal = await _goalRepository.getGoalById(goalId);
-    if (goal == null) {
-      throw const NotFoundException('Goal not found');
+    AppLogger.i('createPlan called: userId=$userId, goalId=$goalId, name=$name', tag: 'PlanManagementService');
+    AppLogger.d('Plan details: startDate=$startDate, endDate=$endDate', tag: 'PlanManagementService');
+    AppLogger.d('RepeatRule: type=${repeatRule.type}, customDays=${repeatRule.customDays}, selectedDaysOfWeek=${repeatRule.selectedDaysOfWeek}', tag: 'PlanManagementService');
+    AppLogger.d('TaskConfig: durationMinutes=${taskConfig.durationMinutes}, repeatCount=${taskConfig.repeatCount}, evaluationOptions=${taskConfig.evaluationOptions}', tag: 'PlanManagementService');
+
+    try {
+      // 1. Validate goal exists
+      AppLogger.d('Step 1: Validating goal exists...', tag: 'PlanManagementService');
+      final goal = await _goalRepository.getGoalById(goalId);
+      if (goal == null) {
+        AppLogger.e('Goal not found: $goalId', tag: 'PlanManagementService');
+        throw const NotFoundException('Goal not found');
+      }
+      AppLogger.d('Goal found: ${goal.id}, title=${goal.title}', tag: 'PlanManagementService');
+
+      // 2. Check goal ownership
+      AppLogger.d('Step 2: Checking goal ownership...', tag: 'PlanManagementService');
+      if (goal.userId != userId) {
+        AppLogger.e('Permission denied: goal.userId=${goal.userId}, userId=$userId', tag: 'PlanManagementService');
+        throw const PermissionException('You do not have permission to add plans to this goal');
+      }
+      AppLogger.d('Ownership verified', tag: 'PlanManagementService');
+
+      // 3. Validate plan
+      AppLogger.d('Step 3: Validating plan creation...', tag: 'PlanManagementService');
+      final validation = await _validatePlanCreation(
+        userId: userId,
+        name: name,
+        startDate: startDate,
+        endDate: endDate,
+        repeatRule: repeatRule,
+        taskConfig: taskConfig,
+      );
+
+      if (!validation.isValid) {
+        AppLogger.e('Plan validation failed: ${validation.errors.join("; ")}', tag: 'PlanManagementService');
+        throw ValidationException(validation.errors.join('; '));
+      }
+      AppLogger.d('Plan validation passed', tag: 'PlanManagementService');
+
+      // 4. Create the plan
+      AppLogger.d('Step 4: Creating plan in repository...', tag: 'PlanManagementService');
+      final plan = await _planRepository.createPlan(
+        userId: userId,
+        goalId: goalId,
+        name: name,
+        description: description,
+        startDate: startDate,
+        endDate: endDate,
+        repeatRule: repeatRule,
+        taskConfig: taskConfig,
+      );
+      AppLogger.i('Plan created successfully: ${plan.id}', tag: 'PlanManagementService');
+
+      // 5. Add plan to goal
+      AppLogger.d('Step 5: Adding plan to goal...', tag: 'PlanManagementService');
+      await _goalRepository.addPlanToGoal(goalId, plan.id);
+      AppLogger.d('Plan added to goal', tag: 'PlanManagementService');
+
+      // 6. Generate first task if applicable
+      AppLogger.d('Step 6: Generating initial task(s)...', tag: 'PlanManagementService');
+      if (plan.isActive) {
+        final task = await _generationService.generateNextTask(plan);
+        if (task != null) {
+          AppLogger.i('Generated initial task for plan ${plan.id}: ${task.id}', tag: 'PlanManagementService');
+        } else {
+          AppLogger.d('No task generated for plan ${plan.id}', tag: 'PlanManagementService');
+        }
+      } else {
+        AppLogger.d('Plan is not active, skipping task generation', tag: 'PlanManagementService');
+      }
+
+      AppLogger.i('✓ Plan creation completed successfully: ${plan.id}', tag: 'PlanManagementService');
+      return plan;
+    } catch (e, stackTrace) {
+      AppLogger.e('Failed to create plan', tag: 'PlanManagementService', error: e, stackTrace: stackTrace);
+      rethrow;
     }
-
-    // 2. Check goal ownership
-    if (goal.userId != userId) {
-      throw const PermissionException('You do not have permission to add plans to this goal');
-    }
-
-    // 3. Validate plan
-    final validation = await _validatePlanCreation(
-      userId: userId,
-      name: name,
-      startDate: startDate,
-      endDate: endDate,
-      repeatRule: repeatRule,
-      taskConfig: taskConfig,
-    );
-
-    if (!validation.isValid) {
-      throw ValidationException(validation.errors.join('; '));
-    }
-
-    // 4. Create the plan
-    final plan = await _planRepository.createPlan(
-      userId: userId,
-      goalId: goalId,
-      name: name,
-      description: description,
-      startDate: startDate,
-      endDate: endDate,
-      repeatRule: repeatRule,
-      taskConfig: taskConfig,
-    );
-
-    // 5. Add plan to goal
-    await _goalRepository.addPlanToGoal(goalId, plan.id);
-
-    // 6. Generate first task if applicable
-    if (plan.isActive) {
-      await _generationService.generateNextTask(plan);
-    }
-
-    return plan;
   }
 
   /// Update plan (limited fields can be updated)

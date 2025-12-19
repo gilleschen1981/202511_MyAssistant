@@ -3,13 +3,14 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i4;
+import 'dart:async' as _i5;
 
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:myassistant/data/models/enums/status.dart' as _i6;
-import 'package:myassistant/data/models/plan_model.dart' as _i5;
+import 'package:myassistant/data/models/plan_model.dart' as _i3;
 import 'package:myassistant/data/models/task_model.dart' as _i2;
-import 'package:myassistant/domain/repositories/i_task_repository.dart' as _i3;
+import 'package:myassistant/domain/repositories/i_plan_repository.dart' as _i7;
+import 'package:myassistant/domain/repositories/i_task_repository.dart' as _i4;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -30,21 +31,26 @@ class _FakeTaskModel_0 extends _i1.SmartFake implements _i2.TaskModel {
     : super(parent, parentInvocation);
 }
 
+class _FakePlanModel_1 extends _i1.SmartFake implements _i3.PlanModel {
+  _FakePlanModel_1(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
+}
+
 /// A class which mocks [ITaskRepository].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockITaskRepository extends _i1.Mock implements _i3.ITaskRepository {
+class MockITaskRepository extends _i1.Mock implements _i4.ITaskRepository {
   MockITaskRepository() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i4.Future<_i2.TaskModel> createTask({
+  _i5.Future<_i2.TaskModel> createTask({
     required String? userId,
     required String? planId,
     required String? name,
     String? description,
-    required _i5.TaskConfiguration? config,
+    required _i3.TaskConfiguration? config,
     required DateTime? windowStartTime,
     required DateTime? windowEndTime,
   }) =>
@@ -58,7 +64,7 @@ class MockITaskRepository extends _i1.Mock implements _i3.ITaskRepository {
               #windowStartTime: windowStartTime,
               #windowEndTime: windowEndTime,
             }),
-            returnValue: _i4.Future<_i2.TaskModel>.value(
+            returnValue: _i5.Future<_i2.TaskModel>.value(
               _FakeTaskModel_0(
                 this,
                 Invocation.method(#createTask, [], {
@@ -73,71 +79,71 @@ class MockITaskRepository extends _i1.Mock implements _i3.ITaskRepository {
               ),
             ),
           )
-          as _i4.Future<_i2.TaskModel>);
+          as _i5.Future<_i2.TaskModel>);
 
   @override
-  _i4.Future<_i2.TaskModel?> getTaskById(String? taskId) =>
+  _i5.Future<_i2.TaskModel?> getTaskById(String? taskId) =>
       (super.noSuchMethod(
             Invocation.method(#getTaskById, [taskId]),
-            returnValue: _i4.Future<_i2.TaskModel?>.value(),
+            returnValue: _i5.Future<_i2.TaskModel?>.value(),
           )
-          as _i4.Future<_i2.TaskModel?>);
+          as _i5.Future<_i2.TaskModel?>);
 
   @override
-  _i4.Future<List<_i2.TaskModel>> getUserTasks(String? userId) =>
+  _i5.Future<List<_i2.TaskModel>> getUserTasks(String? userId) =>
       (super.noSuchMethod(
             Invocation.method(#getUserTasks, [userId]),
-            returnValue: _i4.Future<List<_i2.TaskModel>>.value(
+            returnValue: _i5.Future<List<_i2.TaskModel>>.value(
               <_i2.TaskModel>[],
             ),
           )
-          as _i4.Future<List<_i2.TaskModel>>);
+          as _i5.Future<List<_i2.TaskModel>>);
 
   @override
-  _i4.Future<List<_i2.TaskModel>> getPlanTasks(String? planId) =>
+  _i5.Future<List<_i2.TaskModel>> getPlanTasks(String? planId) =>
       (super.noSuchMethod(
             Invocation.method(#getPlanTasks, [planId]),
-            returnValue: _i4.Future<List<_i2.TaskModel>>.value(
+            returnValue: _i5.Future<List<_i2.TaskModel>>.value(
               <_i2.TaskModel>[],
             ),
           )
-          as _i4.Future<List<_i2.TaskModel>>);
+          as _i5.Future<List<_i2.TaskModel>>);
 
   @override
-  _i4.Future<List<_i2.TaskModel>> getActiveTasks(String? userId) =>
+  _i5.Future<List<_i2.TaskModel>> getActiveTasks(String? userId) =>
       (super.noSuchMethod(
             Invocation.method(#getActiveTasks, [userId]),
-            returnValue: _i4.Future<List<_i2.TaskModel>>.value(
+            returnValue: _i5.Future<List<_i2.TaskModel>>.value(
               <_i2.TaskModel>[],
             ),
           )
-          as _i4.Future<List<_i2.TaskModel>>);
+          as _i5.Future<List<_i2.TaskModel>>);
 
   @override
-  _i4.Future<List<_i2.TaskModel>> getTasksInCurrentWindow(String? userId) =>
+  _i5.Future<List<_i2.TaskModel>> getTasksInCurrentWindow(String? userId) =>
       (super.noSuchMethod(
             Invocation.method(#getTasksInCurrentWindow, [userId]),
-            returnValue: _i4.Future<List<_i2.TaskModel>>.value(
+            returnValue: _i5.Future<List<_i2.TaskModel>>.value(
               <_i2.TaskModel>[],
             ),
           )
-          as _i4.Future<List<_i2.TaskModel>>);
+          as _i5.Future<List<_i2.TaskModel>>);
 
   @override
-  _i4.Future<List<_i2.TaskModel>> getTasksByStatus(
+  _i5.Future<List<_i2.TaskModel>> getTasksByStatus(
     String? userId,
     _i6.TaskStatus? status,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#getTasksByStatus, [userId, status]),
-            returnValue: _i4.Future<List<_i2.TaskModel>>.value(
+            returnValue: _i5.Future<List<_i2.TaskModel>>.value(
               <_i2.TaskModel>[],
             ),
           )
-          as _i4.Future<List<_i2.TaskModel>>);
+          as _i5.Future<List<_i2.TaskModel>>);
 
   @override
-  _i4.Future<List<_i2.TaskModel>> getTasksByDateRange(
+  _i5.Future<List<_i2.TaskModel>> getTasksByDateRange(
     String? userId,
     DateTime? startDate,
     DateTime? endDate,
@@ -148,47 +154,47 @@ class MockITaskRepository extends _i1.Mock implements _i3.ITaskRepository {
               startDate,
               endDate,
             ]),
-            returnValue: _i4.Future<List<_i2.TaskModel>>.value(
+            returnValue: _i5.Future<List<_i2.TaskModel>>.value(
               <_i2.TaskModel>[],
             ),
           )
-          as _i4.Future<List<_i2.TaskModel>>);
+          as _i5.Future<List<_i2.TaskModel>>);
 
   @override
-  _i4.Future<List<_i2.TaskModel>> getTodayTasks(String? userId) =>
+  _i5.Future<List<_i2.TaskModel>> getTodayTasks(String? userId) =>
       (super.noSuchMethod(
             Invocation.method(#getTodayTasks, [userId]),
-            returnValue: _i4.Future<List<_i2.TaskModel>>.value(
+            returnValue: _i5.Future<List<_i2.TaskModel>>.value(
               <_i2.TaskModel>[],
             ),
           )
-          as _i4.Future<List<_i2.TaskModel>>);
+          as _i5.Future<List<_i2.TaskModel>>);
 
   @override
-  _i4.Future<List<_i2.TaskModel>> getUpcomingTasks(
+  _i5.Future<List<_i2.TaskModel>> getUpcomingTasks(
     String? userId, {
     int? days = 7,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#getUpcomingTasks, [userId], {#days: days}),
-            returnValue: _i4.Future<List<_i2.TaskModel>>.value(
+            returnValue: _i5.Future<List<_i2.TaskModel>>.value(
               <_i2.TaskModel>[],
             ),
           )
-          as _i4.Future<List<_i2.TaskModel>>);
+          as _i5.Future<List<_i2.TaskModel>>);
 
   @override
-  _i4.Future<List<_i2.TaskModel>> getOverdueTasks(String? userId) =>
+  _i5.Future<List<_i2.TaskModel>> getOverdueTasks(String? userId) =>
       (super.noSuchMethod(
             Invocation.method(#getOverdueTasks, [userId]),
-            returnValue: _i4.Future<List<_i2.TaskModel>>.value(
+            returnValue: _i5.Future<List<_i2.TaskModel>>.value(
               <_i2.TaskModel>[],
             ),
           )
-          as _i4.Future<List<_i2.TaskModel>>);
+          as _i5.Future<List<_i2.TaskModel>>);
 
   @override
-  _i4.Future<_i2.TaskModel> completeTask({
+  _i5.Future<_i2.TaskModel> completeTask({
     required String? taskId,
     int? actualDurationMinutes,
     String? evaluationResult,
@@ -201,7 +207,7 @@ class MockITaskRepository extends _i1.Mock implements _i3.ITaskRepository {
               #evaluationResult: evaluationResult,
               #executionNote: executionNote,
             }),
-            returnValue: _i4.Future<_i2.TaskModel>.value(
+            returnValue: _i5.Future<_i2.TaskModel>.value(
               _FakeTaskModel_0(
                 this,
                 Invocation.method(#completeTask, [], {
@@ -213,10 +219,10 @@ class MockITaskRepository extends _i1.Mock implements _i3.ITaskRepository {
               ),
             ),
           )
-          as _i4.Future<_i2.TaskModel>);
+          as _i5.Future<_i2.TaskModel>);
 
   @override
-  _i4.Future<_i2.TaskModel> skipTask({
+  _i5.Future<_i2.TaskModel> skipTask({
     required String? taskId,
     String? reason,
   }) =>
@@ -225,7 +231,7 @@ class MockITaskRepository extends _i1.Mock implements _i3.ITaskRepository {
               #taskId: taskId,
               #reason: reason,
             }),
-            returnValue: _i4.Future<_i2.TaskModel>.value(
+            returnValue: _i5.Future<_i2.TaskModel>.value(
               _FakeTaskModel_0(
                 this,
                 Invocation.method(#skipTask, [], {
@@ -235,10 +241,10 @@ class MockITaskRepository extends _i1.Mock implements _i3.ITaskRepository {
               ),
             ),
           )
-          as _i4.Future<_i2.TaskModel>);
+          as _i5.Future<_i2.TaskModel>);
 
   @override
-  _i4.Future<_i2.TaskModel> updateTaskProgress(
+  _i5.Future<_i2.TaskModel> updateTaskProgress(
     String? taskId,
     int? currentCount, {
     int? actualDurationMinutes,
@@ -253,7 +259,7 @@ class MockITaskRepository extends _i1.Mock implements _i3.ITaskRepository {
                 #evaluationResult: evaluationResult,
               },
             ),
-            returnValue: _i4.Future<_i2.TaskModel>.value(
+            returnValue: _i5.Future<_i2.TaskModel>.value(
               _FakeTaskModel_0(
                 this,
                 Invocation.method(
@@ -267,10 +273,10 @@ class MockITaskRepository extends _i1.Mock implements _i3.ITaskRepository {
               ),
             ),
           )
-          as _i4.Future<_i2.TaskModel>);
+          as _i5.Future<_i2.TaskModel>);
 
   @override
-  _i4.Future<_i2.TaskModel> updateTaskStatus({
+  _i5.Future<_i2.TaskModel> updateTaskStatus({
     required String? taskId,
     required _i6.TaskStatus? status,
     bool? clearExecutionData = false,
@@ -285,7 +291,7 @@ class MockITaskRepository extends _i1.Mock implements _i3.ITaskRepository {
               #clearSkipData: clearSkipData,
               #clearDeletedAt: clearDeletedAt,
             }),
-            returnValue: _i4.Future<_i2.TaskModel>.value(
+            returnValue: _i5.Future<_i2.TaskModel>.value(
               _FakeTaskModel_0(
                 this,
                 Invocation.method(#updateTaskStatus, [], {
@@ -298,81 +304,81 @@ class MockITaskRepository extends _i1.Mock implements _i3.ITaskRepository {
               ),
             ),
           )
-          as _i4.Future<_i2.TaskModel>);
+          as _i5.Future<_i2.TaskModel>);
 
   @override
-  _i4.Future<Map<String, dynamic>> getTaskStatistics(String? userId) =>
+  _i5.Future<Map<String, dynamic>> getTaskStatistics(String? userId) =>
       (super.noSuchMethod(
             Invocation.method(#getTaskStatistics, [userId]),
-            returnValue: _i4.Future<Map<String, dynamic>>.value(
+            returnValue: _i5.Future<Map<String, dynamic>>.value(
               <String, dynamic>{},
             ),
           )
-          as _i4.Future<Map<String, dynamic>>);
+          as _i5.Future<Map<String, dynamic>>);
 
   @override
-  _i4.Future<Map<String, dynamic>> getDailyTaskStatistics(
+  _i5.Future<Map<String, dynamic>> getDailyTaskStatistics(
     String? userId,
     DateTime? date,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#getDailyTaskStatistics, [userId, date]),
-            returnValue: _i4.Future<Map<String, dynamic>>.value(
+            returnValue: _i5.Future<Map<String, dynamic>>.value(
               <String, dynamic>{},
             ),
           )
-          as _i4.Future<Map<String, dynamic>>);
+          as _i5.Future<Map<String, dynamic>>);
 
   @override
-  _i4.Future<double> getTaskCompletionRate(String? userId, {int? days = 30}) =>
+  _i5.Future<double> getTaskCompletionRate(String? userId, {int? days = 30}) =>
       (super.noSuchMethod(
             Invocation.method(#getTaskCompletionRate, [userId], {#days: days}),
-            returnValue: _i4.Future<double>.value(0.0),
+            returnValue: _i5.Future<double>.value(0.0),
           )
-          as _i4.Future<double>);
+          as _i5.Future<double>);
 
   @override
-  _i4.Future<_i2.TaskModel?> getActivePlanTask(String? planId) =>
+  _i5.Future<_i2.TaskModel?> getActivePlanTask(String? planId) =>
       (super.noSuchMethod(
             Invocation.method(#getActivePlanTask, [planId]),
-            returnValue: _i4.Future<_i2.TaskModel?>.value(),
+            returnValue: _i5.Future<_i2.TaskModel?>.value(),
           )
-          as _i4.Future<_i2.TaskModel?>);
+          as _i5.Future<_i2.TaskModel?>);
 
   @override
-  _i4.Future<List<_i2.TaskModel>> batchCreateTasks(
+  _i5.Future<List<_i2.TaskModel>> batchCreateTasks(
     List<_i2.TaskModel>? tasks,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#batchCreateTasks, [tasks]),
-            returnValue: _i4.Future<List<_i2.TaskModel>>.value(
+            returnValue: _i5.Future<List<_i2.TaskModel>>.value(
               <_i2.TaskModel>[],
             ),
           )
-          as _i4.Future<List<_i2.TaskModel>>);
+          as _i5.Future<List<_i2.TaskModel>>);
 
   @override
-  _i4.Future<List<_i2.TaskModel>> searchTasks(String? userId, String? query) =>
+  _i5.Future<List<_i2.TaskModel>> searchTasks(String? userId, String? query) =>
       (super.noSuchMethod(
             Invocation.method(#searchTasks, [userId, query]),
-            returnValue: _i4.Future<List<_i2.TaskModel>>.value(
+            returnValue: _i5.Future<List<_i2.TaskModel>>.value(
               <_i2.TaskModel>[],
             ),
           )
-          as _i4.Future<List<_i2.TaskModel>>);
+          as _i5.Future<List<_i2.TaskModel>>);
 
   @override
-  _i4.Future<List<Map<String, dynamic>>> getTaskHistory(String? taskId) =>
+  _i5.Future<List<Map<String, dynamic>>> getTaskHistory(String? taskId) =>
       (super.noSuchMethod(
             Invocation.method(#getTaskHistory, [taskId]),
-            returnValue: _i4.Future<List<Map<String, dynamic>>>.value(
+            returnValue: _i5.Future<List<Map<String, dynamic>>>.value(
               <Map<String, dynamic>>[],
             ),
           )
-          as _i4.Future<List<Map<String, dynamic>>>);
+          as _i5.Future<List<Map<String, dynamic>>>);
 
   @override
-  _i4.Future<bool> addTaskHistoryEntry({
+  _i5.Future<bool> addTaskHistoryEntry({
     required String? taskId,
     required String? userId,
     required String? action,
@@ -389,23 +395,243 @@ class MockITaskRepository extends _i1.Mock implements _i3.ITaskRepository {
               #newStatus: newStatus,
               #metadata: metadata,
             }),
-            returnValue: _i4.Future<bool>.value(false),
+            returnValue: _i5.Future<bool>.value(false),
           )
-          as _i4.Future<bool>);
+          as _i5.Future<bool>);
 
   @override
-  _i4.Future<bool> deleteTask(String? taskId) =>
+  _i5.Future<bool> deleteTask(String? taskId) =>
       (super.noSuchMethod(
             Invocation.method(#deleteTask, [taskId]),
-            returnValue: _i4.Future<bool>.value(false),
+            returnValue: _i5.Future<bool>.value(false),
           )
-          as _i4.Future<bool>);
+          as _i5.Future<bool>);
 
   @override
-  _i4.Future<bool> deletePlanTasks(String? planId) =>
+  _i5.Future<bool> deletePlanTasks(String? planId) =>
       (super.noSuchMethod(
             Invocation.method(#deletePlanTasks, [planId]),
-            returnValue: _i4.Future<bool>.value(false),
+            returnValue: _i5.Future<bool>.value(false),
           )
-          as _i4.Future<bool>);
+          as _i5.Future<bool>);
+}
+
+/// A class which mocks [IPlanRepository].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockIPlanRepository extends _i1.Mock implements _i7.IPlanRepository {
+  MockIPlanRepository() {
+    _i1.throwOnMissingStub(this);
+  }
+
+  @override
+  _i5.Future<_i3.PlanModel> createPlan({
+    required String? userId,
+    required String? goalId,
+    required String? name,
+    String? description,
+    required DateTime? startDate,
+    required DateTime? endDate,
+    required _i3.RepeatRule? repeatRule,
+    required _i3.TaskConfiguration? taskConfig,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#createPlan, [], {
+              #userId: userId,
+              #goalId: goalId,
+              #name: name,
+              #description: description,
+              #startDate: startDate,
+              #endDate: endDate,
+              #repeatRule: repeatRule,
+              #taskConfig: taskConfig,
+            }),
+            returnValue: _i5.Future<_i3.PlanModel>.value(
+              _FakePlanModel_1(
+                this,
+                Invocation.method(#createPlan, [], {
+                  #userId: userId,
+                  #goalId: goalId,
+                  #name: name,
+                  #description: description,
+                  #startDate: startDate,
+                  #endDate: endDate,
+                  #repeatRule: repeatRule,
+                  #taskConfig: taskConfig,
+                }),
+              ),
+            ),
+          )
+          as _i5.Future<_i3.PlanModel>);
+
+  @override
+  _i5.Future<_i3.PlanModel?> getPlanById(String? planId) =>
+      (super.noSuchMethod(
+            Invocation.method(#getPlanById, [planId]),
+            returnValue: _i5.Future<_i3.PlanModel?>.value(),
+          )
+          as _i5.Future<_i3.PlanModel?>);
+
+  @override
+  _i5.Future<List<_i3.PlanModel>> getUserPlans(String? userId) =>
+      (super.noSuchMethod(
+            Invocation.method(#getUserPlans, [userId]),
+            returnValue: _i5.Future<List<_i3.PlanModel>>.value(
+              <_i3.PlanModel>[],
+            ),
+          )
+          as _i5.Future<List<_i3.PlanModel>>);
+
+  @override
+  _i5.Future<List<_i3.PlanModel>> getGoalPlans(String? goalId) =>
+      (super.noSuchMethod(
+            Invocation.method(#getGoalPlans, [goalId]),
+            returnValue: _i5.Future<List<_i3.PlanModel>>.value(
+              <_i3.PlanModel>[],
+            ),
+          )
+          as _i5.Future<List<_i3.PlanModel>>);
+
+  @override
+  _i5.Future<List<_i3.PlanModel>> getActivePlans(String? userId) =>
+      (super.noSuchMethod(
+            Invocation.method(#getActivePlans, [userId]),
+            returnValue: _i5.Future<List<_i3.PlanModel>>.value(
+              <_i3.PlanModel>[],
+            ),
+          )
+          as _i5.Future<List<_i3.PlanModel>>);
+
+  @override
+  _i5.Future<List<_i3.PlanModel>> getPlansByDateRange(
+    String? userId,
+    DateTime? startDate,
+    DateTime? endDate,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#getPlansByDateRange, [
+              userId,
+              startDate,
+              endDate,
+            ]),
+            returnValue: _i5.Future<List<_i3.PlanModel>>.value(
+              <_i3.PlanModel>[],
+            ),
+          )
+          as _i5.Future<List<_i3.PlanModel>>);
+
+  @override
+  _i5.Future<_i3.PlanModel> updatePlan(_i3.PlanModel? plan) =>
+      (super.noSuchMethod(
+            Invocation.method(#updatePlan, [plan]),
+            returnValue: _i5.Future<_i3.PlanModel>.value(
+              _FakePlanModel_1(this, Invocation.method(#updatePlan, [plan])),
+            ),
+          )
+          as _i5.Future<_i3.PlanModel>);
+
+  @override
+  _i5.Future<bool> deletePlan(String? planId) =>
+      (super.noSuchMethod(
+            Invocation.method(#deletePlan, [planId]),
+            returnValue: _i5.Future<bool>.value(false),
+          )
+          as _i5.Future<bool>);
+
+  @override
+  _i5.Future<bool> restorePlan(String? planId) =>
+      (super.noSuchMethod(
+            Invocation.method(#restorePlan, [planId]),
+            returnValue: _i5.Future<bool>.value(false),
+          )
+          as _i5.Future<bool>);
+
+  @override
+  _i5.Future<bool> isPlanNameExists(String? userId, String? name) =>
+      (super.noSuchMethod(
+            Invocation.method(#isPlanNameExists, [userId, name]),
+            returnValue: _i5.Future<bool>.value(false),
+          )
+          as _i5.Future<bool>);
+
+  @override
+  _i5.Future<Map<String, dynamic>> getPlanStatistics(String? planId) =>
+      (super.noSuchMethod(
+            Invocation.method(#getPlanStatistics, [planId]),
+            returnValue: _i5.Future<Map<String, dynamic>>.value(
+              <String, dynamic>{},
+            ),
+          )
+          as _i5.Future<Map<String, dynamic>>);
+
+  @override
+  _i5.Future<bool> updatePlanStatistics({
+    required String? planId,
+    int? totalTaskCount,
+    int? completedTaskCount,
+    int? skippedTaskCount,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#updatePlanStatistics, [], {
+              #planId: planId,
+              #totalTaskCount: totalTaskCount,
+              #completedTaskCount: completedTaskCount,
+              #skippedTaskCount: skippedTaskCount,
+            }),
+            returnValue: _i5.Future<bool>.value(false),
+          )
+          as _i5.Future<bool>);
+
+  @override
+  _i5.Future<double> calculateCompletionRate(String? planId) =>
+      (super.noSuchMethod(
+            Invocation.method(#calculateCompletionRate, [planId]),
+            returnValue: _i5.Future<double>.value(0.0),
+          )
+          as _i5.Future<double>);
+
+  @override
+  _i5.Future<List<_i3.PlanModel>> getPlansNeedingTaskGeneration(
+    String? userId,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#getPlansNeedingTaskGeneration, [userId]),
+            returnValue: _i5.Future<List<_i3.PlanModel>>.value(
+              <_i3.PlanModel>[],
+            ),
+          )
+          as _i5.Future<List<_i3.PlanModel>>);
+
+  @override
+  _i5.Future<List<_i3.PlanModel>> searchPlans(String? userId, String? query) =>
+      (super.noSuchMethod(
+            Invocation.method(#searchPlans, [userId, query]),
+            returnValue: _i5.Future<List<_i3.PlanModel>>.value(
+              <_i3.PlanModel>[],
+            ),
+          )
+          as _i5.Future<List<_i3.PlanModel>>);
+
+  @override
+  _i5.Future<List<_i3.PlanModel>> getDeletedPlans(String? userId) =>
+      (super.noSuchMethod(
+            Invocation.method(#getDeletedPlans, [userId]),
+            returnValue: _i5.Future<List<_i3.PlanModel>>.value(
+              <_i3.PlanModel>[],
+            ),
+          )
+          as _i5.Future<List<_i3.PlanModel>>);
+
+  @override
+  _i5.Future<List<_i3.PlanModel>> getPlansEndingSoon(
+    String? userId, {
+    int? days = 7,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#getPlansEndingSoon, [userId], {#days: days}),
+            returnValue: _i5.Future<List<_i3.PlanModel>>.value(
+              <_i3.PlanModel>[],
+            ),
+          )
+          as _i5.Future<List<_i3.PlanModel>>);
 }

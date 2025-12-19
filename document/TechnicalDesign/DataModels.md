@@ -116,12 +116,15 @@ enum PlanStatus {
 
 ```dart
 class RepeatRule {
-  RepeatType type;              // 重复类型
-  int? customDays;              // 自定义天数（仅当type为custom时使用）
+  RepeatType type;                    // 重复类型
+  int? customDays;                    // 自定义天数（仅当type为custom时使用）
+  List<int>? selectedDaysOfWeek;      // 选中的星期几（仅当type为daysOfWeek时使用）
+                                       // 1=周一, 2=周二, ..., 7=周日
 
   RepeatRule({
     required this.type,
     this.customDays,
+    this.selectedDaysOfWeek,
   });
 
   // 验证规则
@@ -129,16 +132,42 @@ class RepeatRule {
     if (type == RepeatType.custom) {
       return customDays != null && customDays! > 0;
     }
+    if (type == RepeatType.daysOfWeek) {
+      // 必须有选中的天数，且所有值必须在1-7之间
+      if (selectedDaysOfWeek == null || selectedDaysOfWeek!.isEmpty) {
+        return false;
+      }
+      return selectedDaysOfWeek!.every((day) => day >= 1 && day <= 7);
+    }
     return true;
+  }
+
+  // 获取间隔天数
+  int get intervalDays {
+    switch (type) {
+      case RepeatType.oneTime:
+        return 0;
+      case RepeatType.daily:
+        return 1;
+      case RepeatType.weekly:
+        return 7;
+      case RepeatType.monthly:
+        return 30; // 近似值
+      case RepeatType.daysOfWeek:
+        return 7; // 周期为一周，但会在一周内生成多个任务
+      case RepeatType.custom:
+        return customDays ?? 0;
+    }
   }
 }
 
 enum RepeatType {
-  oneTime,  // 一次性
-  daily,    // 每日
-  weekly,   // 每周
-  monthly,  // 每月
-  custom    // 自定义（每N天）
+  oneTime,     // 一次性
+  daily,       // 每日
+  weekly,      // 每周
+  monthly,     // 每月
+  daysOfWeek,  // 一周内指定若干天（如周一、周三、周五）
+  custom       // 自定义（每N天）
 }
 ```
 
@@ -419,7 +448,9 @@ Plan (1) ────→ (N) Task [组合关系]
    - 一个计划可以生成多个任务
    - 任务必须来源于某个计划（组合关系）
    - 软删除计划时，相关任务也会被级联软删除（设置status='deleted'和deleted_at）
-   - 每个计划同一时间只能有一个活跃任务
+   - 每个计划在一个执行窗口内的任务数量取决于重复类型：
+     - oneTime/daily/weekly/monthly/custom类型：一个执行窗口内只有一个任务
+     - **daysOfWeek类型**：一个执行窗口（一周）内可能有多个任务（每个选中的天数一个任务）
 
 4. **任务生成规则**
    - 任务由系统自动生成，不允许手动创建

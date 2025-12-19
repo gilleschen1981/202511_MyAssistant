@@ -84,6 +84,8 @@ class EnumHelper {
         return StringConstants.repeatTypeWeekly;
       case RepeatType.monthly:
         return StringConstants.repeatTypeMonthly;
+      case RepeatType.daysOfWeek:
+        return 'repeatType.daysOfWeek'; // TODO: Add to StringConstants
       case RepeatType.custom:
         return StringConstants.repeatTypeCustom;
     }

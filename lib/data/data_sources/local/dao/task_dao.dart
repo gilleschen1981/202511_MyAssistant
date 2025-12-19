@@ -190,6 +190,21 @@ class TaskDao {
     return getTasksByDateRange(userId, now, future);
   }
 
+  /// Get all future tasks (from now onwards, no limit)
+  Future<List<TaskModel>> getFutureTasks(String userId) async {
+    final db = await _database.database;
+    final now = AppDatabase.getCurrentTimestamp();
+
+    final List<Map<String, dynamic>> maps = await db.query(
+      _tableTasks,
+      where: 'user_id = ? AND window_end_time >= ?',
+      whereArgs: [userId, now],
+      orderBy: 'window_start_time ASC',
+    );
+
+    return maps.map(_mapToTask).toList();
+  }
+
   /// Get overdue tasks
   Future<List<TaskModel>> getOverdueTasks(String userId) async {
     final db = await _database.database;

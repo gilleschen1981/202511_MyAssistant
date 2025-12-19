@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
@@ -81,6 +82,101 @@ void main() {
 
       expect(rule.type, RepeatType.weekly);
       expect(rule.customDays, null);
+    });
+
+    test('should create daysOfWeek rule with valid selected days', () {
+      const rule = RepeatRule(
+        type: RepeatType.daysOfWeek,
+        selectedDaysOfWeek: [1, 3, 5], // Monday, Wednesday, Friday
+      );
+
+      expect(rule.type, RepeatType.daysOfWeek);
+      expect(rule.selectedDaysOfWeek, [1, 3, 5]);
+      expect(rule.isValid, true);
+      expect(rule.intervalDays, 7);
+    });
+
+    test('daysOfWeek rule should be invalid without selected days', () {
+      const rule1 = RepeatRule(type: RepeatType.daysOfWeek);
+      const rule2 = RepeatRule(type: RepeatType.daysOfWeek, selectedDaysOfWeek: []);
+
+      expect(rule1.isValid, false);
+      expect(rule2.isValid, false);
+    });
+
+    test('daysOfWeek rule should be invalid with out-of-range days', () {
+      const rule1 = RepeatRule(
+        type: RepeatType.daysOfWeek,
+        selectedDaysOfWeek: [0, 1, 2], // 0 is invalid (must be 1-7)
+      );
+      const rule2 = RepeatRule(
+        type: RepeatType.daysOfWeek,
+        selectedDaysOfWeek: [1, 8], // 8 is invalid (must be 1-7)
+      );
+
+      expect(rule1.isValid, false);
+      expect(rule2.isValid, false);
+    });
+
+    test('daysOfWeek rule should serialize to JSON correctly', () {
+      const rule = RepeatRule(
+        type: RepeatType.daysOfWeek,
+        selectedDaysOfWeek: [6, 7], // Saturday, Sunday
+      );
+
+      final json = rule.toJson();
+
+      expect(json['type'], 'daysOfWeek'); // Critical: camelCase preserved
+      expect(json['selectedDaysOfWeek'], [6, 7]);
+      expect(json['customDays'], null);
+    });
+
+    test('daysOfWeek rule should deserialize from JSON correctly', () {
+      final json = {
+        'type': 'daysOfWeek', // Critical: test camelCase
+        'selectedDaysOfWeek': [1, 2, 6, 7],
+        'customDays': null,
+      };
+
+      final rule = RepeatRule.fromJson(json);
+
+      expect(rule.type, RepeatType.daysOfWeek);
+      expect(rule.selectedDaysOfWeek, [1, 2, 6, 7]);
+      expect(rule.isValid, true);
+    });
+
+    test('daysOfWeek rule should survive round-trip serialization', () {
+      const original = RepeatRule(
+        type: RepeatType.daysOfWeek,
+        selectedDaysOfWeek: [1, 3, 5, 7],
+      );
+
+      final json = original.toJson();
+      final restored = RepeatRule.fromJson(json);
+
+      expect(restored, equals(original));
+      expect(restored.type, RepeatType.daysOfWeek);
+      expect(restored.selectedDaysOfWeek, [1, 3, 5, 7]);
+    });
+
+    test('daysOfWeek type enum should deserialize case-insensitively from database string', () {
+      // This tests the database deserialization path (RepeatType.fromString)
+      // JSON deserialization uses json_annotation which has strict case matching
+      final testCases = [
+        'daysOfWeek', // camelCase - exact match
+        'DAYSOFWEEK', // UPPERCASE
+        'daysofweek', // lowercase
+        'DaysOfWeek', // PascalCase
+      ];
+
+      for (final dbString in testCases) {
+        final type = RepeatType.fromString(dbString);
+        expect(
+          type,
+          RepeatType.daysOfWeek,
+          reason: 'Failed to deserialize from database string: $dbString',
+        );
+      }
     });
 
     test('Equatable props should work correctly', () {
@@ -390,6 +486,84 @@ void main() {
       expect(plan.status, PlanStatus.active);
       expect(plan.repeatRule.type, RepeatType.weekly);
       expect(plan.taskConfig.durationMinutes, 30);
+    });
+
+    test('should serialize and deserialize daysOfWeek plan correctly', () {
+      final plan = PlanModel(
+        id: 'plan-daysofweek',
+        userId: 'user-123',
+        name: 'Weekend Plan',
+        description: 'Tasks for weekend',
+        goalId: 'goal-123',
+        startDate: startDate,
+        endDate: endDate,
+        repeatRule: const RepeatRule(
+          type: RepeatType.daysOfWeek,
+          selectedDaysOfWeek: [6, 7], // Saturday, Sunday
+        ),
+        taskConfig: const TaskConfiguration(durationMinutes: 45),
+        status: PlanStatus.active,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      // Serialize to JSON and encode to string (simulates real serialization)
+      final jsonMap = plan.toJson();
+      final jsonString = jsonEncode(jsonMap);
+
+      // Decode back to Map (simulates real deserialization)
+      final decodedJson = jsonDecode(jsonString) as Map<String, dynamic>;
+
+      // Verify nested RepeatRule JSON structure
+      final repeatRuleJson = decodedJson['repeatRule'] as Map<String, dynamic>;
+      expect(repeatRuleJson['type'], 'daysOfWeek'); // Critical: camelCase preserved
+      expect(repeatRuleJson['selectedDaysOfWeek'], [6, 7]);
+
+      // Deserialize from JSON
+      final restored = PlanModel.fromJson(decodedJson);
+
+      // Verify complete restoration
+      expect(restored.id, plan.id);
+      expect(restored.name, plan.name);
+      expect(restored.repeatRule.type, RepeatType.daysOfWeek); // Critical check
+      expect(restored.repeatRule.selectedDaysOfWeek, [6, 7]);
+      expect(restored.taskConfig.durationMinutes, 45);
+      expect(restored, equals(plan));
+    });
+
+    test('daysOfWeek plan should survive database-style round-trip', () {
+      // This simulates the PlanDao flow:
+      // 1. Create plan with daysOfWeek rule
+      final originalPlan = PlanModel(
+        id: 'plan-db-test',
+        userId: 'user-123',
+        name: 'Weekday Plan',
+        goalId: 'goal-123',
+        startDate: startDate,
+        endDate: endDate,
+        repeatRule: const RepeatRule(
+          type: RepeatType.daysOfWeek,
+          selectedDaysOfWeek: [1, 2, 3, 4, 5], // Weekdays
+        ),
+        taskConfig: const TaskConfiguration(repeatCount: 10),
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      // 2. Simulate database storage (PlanDao.insertPlan)
+      // In database, RepeatRule.type is stored as a string via toDbString()
+      final dbRepeatType = originalPlan.repeatRule.type.toDbString();
+      expect(dbRepeatType, 'daysOfWeek'); // This is what gets stored in DB
+
+      // 3. Simulate database retrieval (PlanDao._fromMap)
+      // RepeatRule.type is reconstructed via RepeatType.fromString()
+      final restoredType = RepeatType.fromString(dbRepeatType);
+      expect(restoredType, RepeatType.daysOfWeek); // Critical: must match original
+
+      // 4. Verify this works even with different casings (database tolerance)
+      expect(RepeatType.fromString('daysofweek'), RepeatType.daysOfWeek);
+      expect(RepeatType.fromString('DAYSOFWEEK'), RepeatType.daysOfWeek);
+      expect(RepeatType.fromString('DaysOfWeek'), RepeatType.daysOfWeek);
     });
 
     test('Equatable props should work correctly', () {

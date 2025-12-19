@@ -2,7 +2,9 @@ import 'dart:async';
 import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
+import 'package:myassistant/data/models/enums/task_type.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
+import 'package:myassistant/domain/repositories/i_plan_repository.dart';
 import 'package:myassistant/core/errors/exceptions.dart';
 import 'package:myassistant/core/utils/app_logger.dart';
 
@@ -139,13 +141,16 @@ class TaskStatistics {
 /// ```
 class TaskExecutionService {
   final ITaskRepository _taskRepository;
+  final IPlanRepository _planRepository;
 
   /// Active timer sessions indexed by task ID
   final Map<String, TimerSession> _activeSessions = {};
 
   TaskExecutionService({
     required ITaskRepository taskRepository,
-  })  : _taskRepository = taskRepository;
+    required IPlanRepository planRepository,
+  })  : _taskRepository = taskRepository,
+        _planRepository = planRepository;
 
   /// Starts a timer session for a timer-based task.
   ///
@@ -387,7 +392,27 @@ class TaskExecutionService {
       return null;
     }
 
-    // 2. Create new task configuration
+    // 2. For daysOfWeek tasks, validate that current day matches task's window
+    final plan = await _planRepository.getPlanById(task.planId);
+    if (plan != null && plan.repeatRule.type == RepeatType.daysOfWeek) {
+      final now = DateTime.now();
+      final taskDay = task.windowStartTime;
+      final isSameDay = now.year == taskDay.year &&
+                        now.month == taskDay.month &&
+                        now.day == taskDay.day;
+
+      if (!isSameDay) {
+        AppLogger.w(
+          'Cannot re-execute daysOfWeek task: must be executed on the same day. '
+          'Task day: ${taskDay.toString().substring(0, 10)}, '
+          'Current day: ${now.toString().substring(0, 10)}',
+          tag: 'TaskExecutionService'
+        );
+        throw const BusinessException('daysOfWeek类型任务只能在当天再次执行');
+      }
+    }
+
+    // 3. Create new task configuration
     // If the task has repeatCount, reset it to null for re-execution
     // This converts counter tasks to simple/timer/evaluation tasks
     TaskConfiguration newConfig = task.config;

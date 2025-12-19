@@ -13,7 +13,7 @@ enum TaskType {
   /// Create from string
   static TaskType fromString(String str) {
     return TaskType.values.firstWhere(
-      (t) => t.name == str.toLowerCase(),
+      (t) => t.name.toLowerCase() == str.toLowerCase(),
       orElse: () => TaskType.simple,
     );
   }
@@ -25,6 +25,7 @@ enum RepeatType {
   daily,
   weekly,
   monthly,
+  daysOfWeek,  // Select specific days within a week
   custom;
 
   /// Convert to string for database storage
@@ -33,7 +34,7 @@ enum RepeatType {
   /// Create from string
   static RepeatType fromString(String str) {
     return RepeatType.values.firstWhere(
-      (r) => r.name == str.toLowerCase(),
+      (r) => r.name.toLowerCase() == str.toLowerCase(),
       orElse: () => RepeatType.oneTime,
     );
   }
@@ -51,7 +52,7 @@ enum ThemeMode {
   /// Create from string
   static ThemeMode fromString(String str) {
     return ThemeMode.values.firstWhere(
-      (t) => t.name == str.toLowerCase(),
+      (t) => t.name.toLowerCase() == str.toLowerCase(),
       orElse: () => ThemeMode.system,
     );
   }

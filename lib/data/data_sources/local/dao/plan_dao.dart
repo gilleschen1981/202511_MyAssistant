@@ -14,37 +14,50 @@ class PlanDao {
 
   /// Insert plan
   Future<PlanModel> insertPlan(PlanModel plan) async {
-    final db = await _database.database;
-    final planMap = <String, dynamic>{
-      'id': plan.id,
-      'user_id': plan.userId,
-      'goal_id': plan.goalId,
-      'name': plan.name, // Immutable after creation
-      'description': plan.description,
-      'start_date': AppDatabase.dateTimeToTimestamp(plan.startDate),
-      'end_date': AppDatabase.dateTimeToTimestamp(plan.endDate),
-      'repeat_type': plan.repeatRule.type.toDbString(),
-      'custom_days': plan.repeatRule.customDays,
-      'task_config': jsonEncode(plan.taskConfig.toJson()),
-      'status': plan.status.toDbString(),
-      'created_at': AppDatabase.dateTimeToTimestamp(plan.createdAt),
-      'updated_at': AppDatabase.dateTimeToTimestamp(plan.updatedAt),
-      'deleted_at': plan.deletedAt != null
-          ? AppDatabase.dateTimeToTimestamp(plan.deletedAt!)
-          : null,
-      'total_task_count': 0,
-      'completed_task_count': 0,
-      'skipped_task_count': 0,
-      'completion_rate': 0.0,
-    };
+    AppLogger.d('insertPlan called: id=${plan.id}, name=${plan.name}', tag: 'PlanDAO');
 
-    await db.insert(
-      _tablePlans,
-      planMap,
-      conflictAlgorithm: ConflictAlgorithm.fail,
-    );
+    try {
+      final db = await _database.database;
+      final planMap = <String, dynamic>{
+        'id': plan.id,
+        'user_id': plan.userId,
+        'goal_id': plan.goalId,
+        'name': plan.name, // Immutable after creation
+        'description': plan.description,
+        'start_date': AppDatabase.dateTimeToTimestamp(plan.startDate),
+        'end_date': AppDatabase.dateTimeToTimestamp(plan.endDate),
+        'repeat_type': plan.repeatRule.type.toDbString(),
+        'custom_days': plan.repeatRule.customDays,
+        'selected_days_of_week': plan.repeatRule.selectedDaysOfWeek != null
+            ? jsonEncode(plan.repeatRule.selectedDaysOfWeek)
+            : null,
+        'task_config': jsonEncode(plan.taskConfig.toJson()),
+        'status': plan.status.toDbString(),
+        'created_at': AppDatabase.dateTimeToTimestamp(plan.createdAt),
+        'updated_at': AppDatabase.dateTimeToTimestamp(plan.updatedAt),
+        'deleted_at': plan.deletedAt != null
+            ? AppDatabase.dateTimeToTimestamp(plan.deletedAt!)
+            : null,
+        'total_task_count': 0,
+        'completed_task_count': 0,
+        'skipped_task_count': 0,
+        'completion_rate': 0.0,
+      };
 
-    return plan;
+      AppLogger.d('Plan data to insert: repeatType=${planMap['repeat_type']}, selectedDaysOfWeek=${planMap['selected_days_of_week']}, taskConfig=${planMap['task_config']}', tag: 'PlanDAO');
+
+      await db.insert(
+        _tablePlans,
+        planMap,
+        conflictAlgorithm: ConflictAlgorithm.fail,
+      );
+
+      AppLogger.i('Plan inserted successfully: ${plan.id}', tag: 'PlanDAO');
+      return plan;
+    } catch (e, stackTrace) {
+      AppLogger.e('Failed to insert plan: ${plan.id}', tag: 'PlanDAO', error: e, stackTrace: stackTrace);
+      rethrow;
+    }
   }
 
   /// Get plan by ID
@@ -145,6 +158,9 @@ class PlanDao {
       'end_date': AppDatabase.dateTimeToTimestamp(plan.endDate),
       'repeat_type': plan.repeatRule.type.toDbString(),
       'custom_days': plan.repeatRule.customDays,
+      'selected_days_of_week': plan.repeatRule.selectedDaysOfWeek != null
+          ? jsonEncode(plan.repeatRule.selectedDaysOfWeek)
+          : null,
       'task_config': jsonEncode(plan.taskConfig.toJson()),
       'status': plan.status.toDbString(),
       'updated_at': AppDatabase.getCurrentTimestamp(),
@@ -369,10 +385,18 @@ class PlanDao {
     final taskConfigJson = jsonDecode(map['task_config'] as String);
     final taskConfig = TaskConfiguration.fromJson(taskConfigJson);
 
+    // Parse selected days of week (if present)
+    List<int>? selectedDaysOfWeek;
+    if (map['selected_days_of_week'] != null) {
+      final decoded = jsonDecode(map['selected_days_of_week'] as String);
+      selectedDaysOfWeek = (decoded as List).cast<int>();
+    }
+
     // Parse repeat rule
     final repeatRule = RepeatRule(
       type: RepeatType.fromString(map['repeat_type'] as String),
       customDays: map['custom_days'] != null ? _toInt(map['custom_days']) : null,
+      selectedDaysOfWeek: selectedDaysOfWeek,
     );
 
     return PlanModel(

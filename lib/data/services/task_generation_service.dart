@@ -28,9 +28,18 @@ class TaskGenerationService {
         _planRepository = planRepository;
 
   /// Generate next task for a specific plan
+  /// For daysOfWeek type, this may generate multiple tasks (one for each selected day)
+  /// Returns the first generated task for compatibility
   Future<TaskModel?> generateNextTask(PlanModel plan) async {
     AppLogger.d('generateNextTask called for plan: ${plan.name}', tag: 'TaskGenerationService');
 
+    // Special handling for daysOfWeek type - generate multiple tasks
+    if (plan.repeatRule.type == RepeatType.daysOfWeek) {
+      final tasks = await _generateDaysOfWeekTasks(plan);
+      return tasks.isNotEmpty ? tasks.first : null;
+    }
+
+    // Standard single-task generation for other repeat types
     // 1. Check if plan is active
     if (!_isPlanActive(plan)) {
       AppLogger.d('Plan is not active, skipping', tag: 'TaskGenerationService');
@@ -90,6 +99,77 @@ class TaskGenerationService {
       AppLogger.e('Failed to create task', tag: 'TaskGenerationService', error: e);
       return null;
     }
+  }
+
+  /// Generate tasks for daysOfWeek repeat type
+  /// Creates one task for each selected day in the current week
+  Future<List<TaskModel>> _generateDaysOfWeekTasks(PlanModel plan) async {
+    AppLogger.d('_generateDaysOfWeekTasks called for plan: ${plan.name}', tag: 'TaskGenerationService');
+
+    // 1. Check if plan is active
+    if (!_isPlanActive(plan)) {
+      AppLogger.d('Plan is not active, skipping', tag: 'TaskGenerationService');
+      return [];
+    }
+
+    // 2. Get the last task to check if we need to generate
+    final lastTask = await _getLastTaskForPlan(plan.id);
+
+    // 3. Check if should generate
+    if (!_shouldGenerateTask(plan, lastTask)) {
+      AppLogger.d('Should not generate tasks (conditions not met)', tag: 'TaskGenerationService');
+      return [];
+    }
+
+    // 4. Calculate task windows for each selected day
+    final weekStart = _getStartOfWeek(DateTime.now());
+    final taskWindows = _calculateTaskWindowsForWeek(plan, weekStart);
+    AppLogger.i('Calculated ${taskWindows.length} task windows for selected days', tag: 'TaskGenerationService');
+    for (var i = 0; i < taskWindows.length; i++) {
+      AppLogger.d('  Window $i: ${taskWindows[i].start} - ${taskWindows[i].end}', tag: 'TaskGenerationService');
+    }
+
+    final generatedTasks = <TaskModel>[];
+
+    // 5. For each window, check if task already exists, if not create it
+    for (var i = 0; i < taskWindows.length; i++) {
+      final window = taskWindows[i];
+      AppLogger.d('Processing window $i: ${window.start}', tag: 'TaskGenerationService');
+
+      // Check if task already exists for this day
+      final existingTasks = await _taskRepository.getPlanTasks(plan.id);
+      AppLogger.d('Found ${existingTasks.length} existing tasks for plan', tag: 'TaskGenerationService');
+
+      final hasTaskForDay = existingTasks.any((t) =>
+          _isSameDay(t.windowStartTime, window.start) &&
+          t.status == TaskStatus.active);
+
+      if (hasTaskForDay) {
+        AppLogger.d('Task already exists for ${window.start}, skipping', tag: 'TaskGenerationService');
+        continue;
+      }
+
+      // Create task for this day
+      AppLogger.i('Creating task for ${window.start}', tag: 'TaskGenerationService');
+      try {
+        final createdTask = await _taskRepository.createTask(
+          userId: plan.userId,
+          planId: plan.id,
+          name: plan.name,
+          description: plan.description,
+          config: plan.taskConfig,
+          windowStartTime: window.start,
+          windowEndTime: window.end,
+        );
+        generatedTasks.add(createdTask);
+        AppLogger.i('Task created successfully for ${window.start} ✓', tag: 'TaskGenerationService');
+      } catch (e, stackTrace) {
+        AppLogger.e('Failed to create task for ${window.start}', tag: 'TaskGenerationService', error: e, stackTrace: stackTrace);
+      }
+    }
+
+    AppLogger.i('Generated ${generatedTasks.length} tasks for daysOfWeek plan', tag: 'TaskGenerationService');
+    return generatedTasks;
   }
 
   /// Batch generate tasks (on app startup)
@@ -210,6 +290,20 @@ class TaskGenerationService {
         AppLogger.d('Monthly task - same month check: $isSameMonth, should generate: ${!isSameMonth}', tag: 'TaskGenerationService');
         return !isSameMonth;
 
+      case RepeatType.daysOfWeek:
+        // DaysOfWeek task: check if current week is missing any tasks for selected days
+        // Different from weekly - we need to check if ALL selected days have tasks
+        final isSameWeek = _isSameWeek(lastTask.windowStartTime, now);
+        if (!isSameWeek) {
+          // New week started, should generate tasks for this week
+          AppLogger.d('DaysOfWeek task - new week started, should generate ✓', tag: 'TaskGenerationService');
+          return true;
+        }
+        // Same week - need to check if we have all tasks for selected days
+        // This will be handled in generateNextTask by checking individual days
+        AppLogger.d('DaysOfWeek task - same week, checking in generateNextTask', tag: 'TaskGenerationService');
+        return true;
+
       case RepeatType.custom:
         // Custom interval: check days passed
         final daysSinceLastTask = now.difference(lastTask.windowStartTime).inDays;
@@ -244,6 +338,10 @@ class TaskGenerationService {
         case RepeatType.monthly:
           windowStart = _getStartOfMonth(now);
           break;
+        case RepeatType.daysOfWeek:
+          // Start of current week
+          windowStart = _getStartOfWeek(now);
+          break;
         case RepeatType.custom:
           windowStart = _getStartOfDay(lastTask.windowEndTime.add(const Duration(days: 1)));
           break;
@@ -264,6 +362,11 @@ class TaskGenerationService {
       case RepeatType.monthly:
         windowEnd = _getEndOfMonth(windowStart);
         break;
+      case RepeatType.daysOfWeek:
+        // For daysOfWeek, execution window is the whole week
+        // Individual task windows are calculated separately in _calculateTaskWindowsForWeek
+        windowEnd = _getEndOfWeek(windowStart);
+        break;
       case RepeatType.custom:
         final days = (plan.repeatRule.customDays ?? 1) - 1;
         windowEnd = windowStart.add(Duration(days: days));
@@ -277,6 +380,41 @@ class TaskGenerationService {
     }
 
     return ExecutionWindow(start: windowStart, end: windowEnd);
+  }
+
+  /// Calculate task windows for each selected day of the week
+  /// Used for daysOfWeek repeat type
+  List<ExecutionWindow> _calculateTaskWindowsForWeek(
+    PlanModel plan,
+    DateTime weekStart,
+  ) {
+    final windows = <ExecutionWindow>[];
+    final selectedDays = plan.repeatRule.selectedDaysOfWeek!;
+    final now = DateTime.now();
+
+    for (final dayOfWeek in selectedDays) {
+      // Calculate date for this day in the week
+      // dayOfWeek: 1=Monday, 7=Sunday
+      final taskDate = weekStart.add(Duration(days: dayOfWeek - 1));
+
+      // Skip if date is before plan start or after plan end
+      if (taskDate.isBefore(_getStartOfDay(plan.startDate)) ||
+          taskDate.isAfter(_getEndOfDay(plan.endDate))) {
+        continue;
+      }
+
+      // For first week: skip days that have already passed
+      if (taskDate.isBefore(_getStartOfDay(now))) {
+        continue;
+      }
+
+      windows.add(ExecutionWindow(
+        start: _getStartOfDay(taskDate),
+        end: _getEndOfDay(taskDate),
+      ));
+    }
+
+    return windows;
   }
 
   // Helper methods

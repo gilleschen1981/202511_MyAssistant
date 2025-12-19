@@ -55,8 +55,10 @@ final planManagementServiceProvider = Provider<PlanManagementService>((ref) {
 /// Task execution service provider
 final taskExecutionServiceProvider = Provider<TaskExecutionService>((ref) {
   final taskRepository = ref.watch(taskRepositoryProvider);
+  final planRepository = ref.watch(planRepositoryProvider);
   return TaskExecutionService(
     taskRepository: taskRepository,
+    planRepository: planRepository,
   );
 });
 

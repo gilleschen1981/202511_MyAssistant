@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/enums/task_type.dart';
 import 'package:myassistant/presentation/providers/plan_state_provider.dart';
+import 'package:myassistant/core/utils/app_logger.dart';
 
 /// Dialog for creating a new plan
 class CreatePlanDialog extends ConsumerStatefulWidget {
@@ -31,6 +32,7 @@ class _CreatePlanDialogState extends ConsumerState<CreatePlanDialog> {
   DateTime? _endDate;
   RepeatType _repeatType = RepeatType.oneTime;
   int? _customDays;
+  final List<int> _selectedDaysOfWeek = []; // 1=Monday, 7=Sunday
 
   // Task configuration - optional fields that determine task type
   int? _durationMinutes;
@@ -227,6 +229,28 @@ class _CreatePlanDialogState extends ConsumerState<CreatePlanDialog> {
                             return null;
                           },
                         ),
+                      ],
+
+                      // Days of week selector for daysOfWeek repeat type
+                      if (_repeatType == RepeatType.daysOfWeek) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          '选择星期',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildDaysOfWeekSelector(theme),
+                        if (_selectedDaysOfWeek.isEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '请至少选择一天',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.error,
+                            ),
+                          ),
+                        ],
                       ],
                       const SizedBox(height: 24),
 
@@ -492,6 +516,69 @@ class _CreatePlanDialogState extends ConsumerState<CreatePlanDialog> {
     }
   }
 
+  Widget _buildDaysOfWeekSelector(ThemeData theme) {
+    // Map day numbers to simple Chinese names
+    final dayNames = {
+      1: '一',
+      2: '二',
+      3: '三',
+      4: '四',
+      5: '五',
+      6: '六',
+      7: '日',
+    };
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: dayNames.entries.map((entry) {
+        final dayNumber = entry.key;
+        final dayName = entry.value;
+        final isSelected = _selectedDaysOfWeek.contains(dayNumber);
+
+        return Expanded(
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                if (isSelected) {
+                  _selectedDaysOfWeek.remove(dayNumber);
+                } else {
+                  _selectedDaysOfWeek.add(dayNumber);
+                  _selectedDaysOfWeek.sort();
+                }
+              });
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? theme.colorScheme.primaryContainer
+                    : Colors.transparent,
+                border: Border.all(
+                  color: isSelected
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outline,
+                  width: 1.5,
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Text(
+                  dayName,
+                  style: TextStyle(
+                    color: isSelected
+                        ? theme.colorScheme.onPrimaryContainer
+                        : theme.colorScheme.onSurface,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) {
@@ -514,6 +601,14 @@ class _CreatePlanDialogState extends ConsumerState<CreatePlanDialog> {
       return;
     }
 
+    // Validation: daysOfWeek must have at least one day selected
+    if (_repeatType == RepeatType.daysOfWeek && _selectedDaysOfWeek.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请至少选择一天')),
+      );
+      return;
+    }
+
     if (_startDate == null || _endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('请选择开始和结束日期')),
@@ -532,6 +627,13 @@ class _CreatePlanDialogState extends ConsumerState<CreatePlanDialog> {
       _isSubmitting = true;
     });
 
+    AppLogger.i('=== Starting plan creation from UI ===', tag: 'CreatePlanDialog');
+    AppLogger.d('Plan name: ${_nameController.text.trim()}', tag: 'CreatePlanDialog');
+    AppLogger.d('Goal ID: ${widget.goalId}', tag: 'CreatePlanDialog');
+    AppLogger.d('Repeat type: $_repeatType', tag: 'CreatePlanDialog');
+    AppLogger.d('Selected days of week: $_selectedDaysOfWeek', tag: 'CreatePlanDialog');
+    AppLogger.d('Start date: $_startDate, End date: $_endDate', tag: 'CreatePlanDialog');
+
     try {
       // Create task configuration
       final taskConfig = TaskConfiguration(
@@ -539,14 +641,21 @@ class _CreatePlanDialogState extends ConsumerState<CreatePlanDialog> {
         repeatCount: _repeatCount,
         evaluationOptions: _evaluationOptions.isNotEmpty ? _evaluationOptions : null,
       );
+      AppLogger.d('TaskConfig created: durationMinutes=$_durationMinutes, repeatCount=$_repeatCount, evaluationOptions=$_evaluationOptions', tag: 'CreatePlanDialog');
 
       // Create repeat rule
       final repeatRule = RepeatRule(
         type: _repeatType,
         customDays: _repeatType == RepeatType.custom ? _customDays : null,
+        selectedDaysOfWeek: _repeatType == RepeatType.daysOfWeek && _selectedDaysOfWeek.isNotEmpty
+            ? _selectedDaysOfWeek
+            : null,
       );
+      AppLogger.d('RepeatRule created: type=$_repeatType, customDays=$_customDays, selectedDaysOfWeek=${repeatRule.selectedDaysOfWeek}', tag: 'CreatePlanDialog');
+      AppLogger.d('RepeatRule.isValid: ${repeatRule.isValid}', tag: 'CreatePlanDialog');
 
       // Create plan
+      AppLogger.d('Calling planListProvider.createPlan...', tag: 'CreatePlanDialog');
       final plan = await ref.read(planListProvider.notifier).createPlan(
         goalId: widget.goalId,
         name: _nameController.text.trim(),
@@ -560,16 +669,19 @@ class _CreatePlanDialogState extends ConsumerState<CreatePlanDialog> {
       );
 
       if (plan != null && mounted) {
+        AppLogger.i('✓ Plan created successfully: ${plan.id}', tag: 'CreatePlanDialog');
         Navigator.pop(context, plan);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('计划"${plan.name}"创建成功')),
         );
       } else if (mounted) {
+        AppLogger.w('Plan creation returned null', tag: 'CreatePlanDialog');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('创建计划失败,请重试')),
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.e('Failed to create plan from UI', tag: 'CreatePlanDialog', error: e, stackTrace: stackTrace);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('创建失败: $e')),
@@ -598,6 +710,8 @@ class _CreatePlanDialogState extends ConsumerState<CreatePlanDialog> {
         return '每周';
       case RepeatType.monthly:
         return '每月';
+      case RepeatType.daysOfWeek:
+        return '选择星期';
       case RepeatType.custom:
         return '自定义';
     }

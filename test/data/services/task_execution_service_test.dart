@@ -6,19 +6,23 @@ import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
+import 'package:myassistant/domain/repositories/i_plan_repository.dart';
 import 'package:myassistant/core/errors/exceptions.dart';
 
 import 'task_execution_service_test.mocks.dart';
 
-@GenerateMocks([ITaskRepository])
+@GenerateMocks([ITaskRepository, IPlanRepository])
 void main() {
   late TaskExecutionService service;
   late MockITaskRepository mockTaskRepository;
+  late MockIPlanRepository mockPlanRepository;
 
   setUp(() {
     mockTaskRepository = MockITaskRepository();
+    mockPlanRepository = MockIPlanRepository();
     service = TaskExecutionService(
       taskRepository: mockTaskRepository,
+      planRepository: mockPlanRepository,
     );
   });
 
@@ -549,6 +553,7 @@ void main() {
       final task = createTestTask(status: TaskStatus.completed);
       final newTask = createTestTask(id: 'task-new');
 
+      when(mockPlanRepository.getPlanById(any)).thenAnswer((_) async => null);
       when(mockTaskRepository.createTask(
         userId: anyNamed('userId'),
         planId: anyNamed('planId'),
@@ -587,6 +592,7 @@ void main() {
       );
       final newTask = createTestTask(id: 'task-new');
 
+      when(mockPlanRepository.getPlanById(any)).thenAnswer((_) async => null);
       when(mockTaskRepository.createTask(
         userId: anyNamed('userId'),
         planId: anyNamed('planId'),

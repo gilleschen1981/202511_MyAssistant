@@ -978,6 +978,11 @@ class GoalManagementService {
         windowStart = _getStartOfMonth(now);
         windowEnd = _getEndOfMonth(now);
         break;
+      case RepeatType.daysOfWeek:
+        // For daysOfWeek, window is weekly (same as weekly type)
+        windowStart = _getStartOfWeek(now);
+        windowEnd = _getEndOfWeek(now);
+        break;
       case RepeatType.custom:
         // For custom, use current day as start
         windowStart = _getStartOfDay(now);

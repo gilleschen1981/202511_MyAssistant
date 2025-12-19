@@ -125,6 +125,11 @@ class TaskGenerationService {
         // 每月任务：检查本月是否已有任务
         return !_isSameMonth(lastTask.windowStartTime, now);
 
+      case RepeatType.daysOfWeek:
+        // daysOfWeek类型特殊处理：调用专门的方法生成多个任务
+        // 此方法不适用于daysOfWeek类型，应使用_generateDaysOfWeekTasks
+        return false;
+
       case RepeatType.custom:
         // 自定义间隔：检查间隔天数
         final daysSinceLastTask = now.difference(lastTask.windowStartTime).inDays;
@@ -156,6 +161,10 @@ class TaskGenerationService {
         case RepeatType.monthly:
           windowStart = _getStartOfMonth(now);
           break;
+        case RepeatType.daysOfWeek:
+          // daysOfWeek类型不使用此方法，应使用_generateDaysOfWeekTasks
+          windowStart = _getStartOfWeek(now);
+          break;
         case RepeatType.custom:
           final daysSince = plan.repeatRule.customDays!;
           windowStart = lastTask.windowEndTime.add(Duration(days: 1));
@@ -176,6 +185,10 @@ class TaskGenerationService {
         break;
       case RepeatType.monthly:
         windowEnd = _getEndOfMonth(windowStart);
+        break;
+      case RepeatType.daysOfWeek:
+        // daysOfWeek类型不使用此方法，应使用_generateDaysOfWeekTasks
+        windowEnd = _getEndOfWeek(windowStart);
         break;
       case RepeatType.custom:
         windowEnd = windowStart.add(Duration(days: plan.repeatRule.customDays! - 1));
@@ -252,6 +265,229 @@ class ExecutionWindow {
 
   ExecutionWindow({required this.start, required this.end});
 }
+```
+
+### 2.2 daysOfWeek类型的特殊处理
+
+#### 2.2.1 设计概述
+
+`daysOfWeek` 是一种特殊的重复类型，允许用户在一周内选择若干天（如周一、周三、周五）来执行任务。与其他重复类型不同，daysOfWeek类型的计划在一个执行窗口（一周）内会生成**多个独立的任务**，每个选中的天数对应一个任务。
+
+#### 2.2.2 核心特性
+
+1. **执行窗口**：与weekly类型相同，为一周（周一00:00 - 周日23:59:59）
+2. **多任务生成**：一个执行窗口内会生成多个任务（等于selectedDaysOfWeek的数量）
+3. **独立时间窗口**：每个任务有独立的24小时窗口（该天的00:00 - 23:59:59）
+4. **再次执行**：与daily类型一致，完成后可在当天再次执行
+5. **智能去重**：自动检查每天是否已有任务，避免重复生成
+
+#### 2.2.3 数据约束
+
+```dart
+// RepeatRule配置示例
+final rule = RepeatRule(
+  type: RepeatType.daysOfWeek,
+  selectedDaysOfWeek: [1, 3, 5],  // 周一、周三、周五
+);
+
+// 验证规则
+bool get isValid {
+  if (type == RepeatType.daysOfWeek) {
+    // 必须有选中的天数
+    if (selectedDaysOfWeek == null || selectedDaysOfWeek!.isEmpty) {
+      return false;
+    }
+    // 所有值必须在1-7之间 (1=周一, 7=周日)
+    return selectedDaysOfWeek!.every((day) => day >= 1 && day <= 7);
+  }
+  return true;
+}
+```
+
+#### 2.2.4 任务生成逻辑
+
+**主要方法**：`_generateDaysOfWeekTasks(Plan plan)`
+
+```dart
+/// 为daysOfWeek类型计划生成任务
+///
+/// 在当前周内，为每个选定的天数生成一个独立任务
+/// 每个任务的执行窗口为该天的00:00-23:59:59
+Future<List<Task>> _generateDaysOfWeekTasks(Plan plan) async {
+  final now = DateTime.now();
+  final generatedTasks = <Task>[];
+
+  // 1. 计算当前周的开始和结束时间
+  final weekStart = _getStartOfWeek(now);
+  final weekEnd = _getEndOfWeek(now);
+
+  // 2. 为每个选定的天数计算任务窗口
+  final taskWindows = _calculateTaskWindowsForWeek(
+    plan,
+    weekStart,
+    weekEnd,
+    now,
+  );
+
+  // 3. 获取该计划已有的任务
+  final existingTasks = await _taskRepository.getPlanTasks(plan.id);
+
+  // 4. 为每个窗口生成任务（如果不存在）
+  for (final window in taskWindows) {
+    // 检查该天是否已有任务
+    final hasTaskForDay = existingTasks.any((t) =>
+      _isSameDay(t.windowStartTime, window.start) &&
+      t.status == TaskStatus.active
+    );
+
+    if (hasTaskForDay) {
+      continue; // 已存在，跳过
+    }
+
+    // 创建新任务
+    final task = Task(
+      id: IdGenerator.generateUuid(),
+      userId: plan.userId,
+      planId: plan.id,
+      name: plan.name,
+      description: plan.description,
+      config: plan.taskConfig,
+      windowStartTime: window.start,
+      windowEndTime: window.end,
+      status: TaskStatus.active,
+      currentCount: 0,
+      createdAt: DateTime.now(),
+    );
+
+    await _taskRepository.createTask(task);
+    generatedTasks.add(task);
+  }
+
+  return generatedTasks;
+}
+
+/// 计算一周内每个选定天数的任务窗口
+List<ExecutionWindow> _calculateTaskWindowsForWeek(
+  Plan plan,
+  DateTime weekStart,
+  DateTime weekEnd,
+  DateTime now,
+) {
+  final windows = <ExecutionWindow>[];
+  final selectedDays = plan.repeatRule.selectedDaysOfWeek ?? [];
+
+  for (final dayOfWeek in selectedDays) {
+    // 计算该天在当前周的日期
+    final dayDate = weekStart.add(Duration(days: dayOfWeek - 1));
+
+    // 检查是否在计划有效期内
+    if (dayDate.isBefore(plan.startDate) || dayDate.isAfter(plan.endDate)) {
+      continue;
+    }
+
+    // 检查是否已过期（当天已结束）
+    if (dayDate.isBefore(_getStartOfDay(now))) {
+      continue;
+    }
+
+    // 创建该天的执行窗口（00:00 - 23:59:59）
+    final windowStart = _getStartOfDay(dayDate);
+    final windowEnd = _getEndOfDay(dayDate);
+
+    windows.add(ExecutionWindow(start: windowStart, end: windowEnd));
+  }
+
+  return windows;
+}
+```
+
+#### 2.2.5 与其他重复类型的对比
+
+| 特性 | daily | weekly | daysOfWeek |
+|------|-------|--------|------------|
+| 执行窗口 | 1天 | 7天 | 7天 |
+| 窗口内任务数 | 1个 | 1个 | 多个（根据选中天数） |
+| 任务时间窗口 | 当天00:00-23:59 | 整周00:00-23:59 | 各自当天00:00-23:59 |
+| 再次执行 | ✅ 支持 | ❌ 不支持 | ✅ 支持（仅当天） |
+| 应用场景 | 每天健身 | 每周总结 | 周一三五跑步 |
+
+#### 2.2.6 业务规则
+
+1. **生成时机**：
+   - 应用启动时
+   - 周一开始时（新的一周）
+   - Resume Goal时
+   - 手动刷新时
+
+2. **去重机制**：
+   - 检查每天是否已有active状态的任务
+   - 相同日期的任务不重复生成
+   - 已完成的任务可以再次执行（生成新任务）
+
+3. **过期处理**：
+   - 只生成未来和今天的任务
+   - 已过去的天数不生成任务
+   - 过期的active任务自动标记为skipped
+
+4. **再次执行约束**：
+   ```dart
+   // 验证当前日期必须与任务窗口日期一致
+   final plan = await _planRepository.getPlanById(task.planId);
+   if (plan != null && plan.repeatRule.type == RepeatType.daysOfWeek) {
+     final now = DateTime.now();
+     final taskDay = task.windowStartTime;
+     final isSameDay = now.year == taskDay.year &&
+                       now.month == taskDay.month &&
+                       now.day == taskDay.day;
+
+     if (!isSameDay) {
+       throw BusinessException('daysOfWeek类型任务只能在当天再次执行');
+     }
+   }
+   ```
+
+5. **Plan操作影响**：
+   - **Pause Goal**：删除所有计划中当前窗口内的所有active任务
+   - **Resume Goal**：调用generateNextTask，自动生成本周缺失的所有任务
+   - **Complete Goal**：跳过所有计划中当前窗口内的所有active任务
+   - **Delete Plan**：软删除该计划的所有任务
+
+#### 2.2.7 示例场景
+
+**场景**：用户创建"周一三五跑步"计划
+
+```dart
+// 1. 创建计划
+final plan = Plan(
+  id: 'plan-123',
+  userId: 'user-456',
+  name: '晨跑',
+  repeatRule: RepeatRule(
+    type: RepeatType.daysOfWeek,
+    selectedDaysOfWeek: [1, 3, 5],  // 周一、周三、周五
+  ),
+  startDate: DateTime(2024, 1, 1),
+  endDate: DateTime(2024, 12, 31),
+  taskConfig: TaskConfiguration(durationMinutes: 30),
+);
+
+// 2. 生成任务（假设今天是2024年1月15日周一）
+final tasks = await _generateDaysOfWeekTasks(plan);
+// 结果：生成3个任务
+// - Task 1: 2024-01-15 (周一) 00:00 - 23:59
+// - Task 2: 2024-01-17 (周三) 00:00 - 23:59
+// - Task 3: 2024-01-19 (周五) 00:00 - 23:59
+
+// 3. 用户在周一完成任务
+await taskExecutionService.completeTask(task: tasks[0]);
+
+// 4. 用户在周一再次执行
+final newTask = await taskExecutionService.reExecuteTask(tasks[0].id);
+// 结果：创建一个新任务，窗口仍为 2024-01-15 00:00 - 23:59
+
+// 5. 到了周二，尝试再次执行周一的任务
+await taskExecutionService.reExecuteTask(tasks[0].id);
+// 抛出异常：'daysOfWeek类型任务只能在当天再次执行'
 ```
 
 ## 3. 任务刷新服务（TaskRefreshService）

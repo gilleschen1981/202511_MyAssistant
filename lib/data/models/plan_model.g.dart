@@ -9,12 +9,16 @@ part of 'plan_model.dart';
 RepeatRule _$RepeatRuleFromJson(Map<String, dynamic> json) => RepeatRule(
   type: $enumDecode(_$RepeatTypeEnumMap, json['type']),
   customDays: (json['customDays'] as num?)?.toInt(),
+  selectedDaysOfWeek: (json['selectedDaysOfWeek'] as List<dynamic>?)
+      ?.map((e) => (e as num).toInt())
+      .toList(),
 );
 
 Map<String, dynamic> _$RepeatRuleToJson(RepeatRule instance) =>
     <String, dynamic>{
       'type': _$RepeatTypeEnumMap[instance.type]!,
       'customDays': instance.customDays,
+      'selectedDaysOfWeek': instance.selectedDaysOfWeek,
     };
 
 const _$RepeatTypeEnumMap = {
@@ -22,6 +26,7 @@ const _$RepeatTypeEnumMap = {
   RepeatType.daily: 'daily',
   RepeatType.weekly: 'weekly',
   RepeatType.monthly: 'monthly',
+  RepeatType.daysOfWeek: 'daysOfWeek',
   RepeatType.custom: 'custom',
 };
 

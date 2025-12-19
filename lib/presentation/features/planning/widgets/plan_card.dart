@@ -229,6 +229,24 @@ class PlanCard extends StatelessWidget {
         return 'Weekly';
       case RepeatType.monthly:
         return 'Monthly';
+      case RepeatType.daysOfWeek:
+        if (rule.selectedDaysOfWeek != null && rule.selectedDaysOfWeek!.isNotEmpty) {
+          final dayNames = {
+            1: '一',
+            2: '二',
+            3: '三',
+            4: '四',
+            5: '五',
+            6: '六',
+            7: '日',
+          };
+          final selectedNames = rule.selectedDaysOfWeek!
+              .map((day) => dayNames[day] ?? '')
+              .where((name) => name.isNotEmpty)
+              .join('、');
+          return '周$selectedNames';
+        }
+        return 'Selected Days';
       case RepeatType.custom:
         return 'Every ${rule.customDays} days';
     }

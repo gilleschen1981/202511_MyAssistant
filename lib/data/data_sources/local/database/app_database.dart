@@ -32,7 +32,6 @@ class AppDatabase implements DatabaseInterface {
       path,
       version: AppConstants.databaseVersion,
       onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
       onConfigure: _onConfigure,
       onOpen: _onOpen,
     );
@@ -159,6 +158,7 @@ class AppDatabase implements DatabaseInterface {
         end_date INTEGER NOT NULL,
         repeat_type TEXT NOT NULL,
         custom_days INTEGER,
+        selected_days_of_week TEXT,
         task_config TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'active',
         created_at INTEGER NOT NULL,
@@ -170,7 +170,7 @@ class AppDatabase implements DatabaseInterface {
         completion_rate REAL DEFAULT 0.0,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE,
-        CHECK (repeat_type IN ('oneTime', 'daily', 'weekly', 'monthly', 'custom')),
+        CHECK (repeat_type IN ('oneTime', 'daily', 'weekly', 'monthly', 'daysOfWeek', 'custom')),
         CHECK (end_date >= start_date),
         CHECK (custom_days IS NULL OR custom_days > 0),
         CHECK (status IN ('active', 'paused', 'completed', 'deleted'))
@@ -437,23 +437,6 @@ class AppDatabase implements DatabaseInterface {
     // Note: Task configuration validation (Timer + Evaluation coexistence check)
     // is handled in Dart code (plan_model.dart) to ensure compatibility with
     // older SQLite versions that don't support json_extract (< 3.38.0)
-  }
-
-  /// Upgrade database
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    AppLogger.i('Upgrading database from version $oldVersion to $newVersion', tag: 'AppDatabase');
-
-    // Migration from v1 to v2: Remove json_extract trigger for older SQLite compatibility
-    if (oldVersion < 2) {
-      AppLogger.i('Applying migration v1 -> v2: Removing validate_task_config trigger', tag: 'AppDatabase');
-      try {
-        await db.execute('DROP TRIGGER IF EXISTS validate_task_config');
-        AppLogger.i('Migration v1 -> v2 completed successfully', tag: 'AppDatabase');
-      } catch (e) {
-        AppLogger.e('Migration v1 -> v2 failed', tag: 'AppDatabase', error: e);
-        rethrow;
-      }
-    }
   }
 
   /// Close database connection

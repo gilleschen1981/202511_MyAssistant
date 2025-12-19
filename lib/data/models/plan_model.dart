@@ -10,16 +10,25 @@ part 'plan_model.g.dart';
 class RepeatRule extends Equatable {
   final RepeatType type;
   final int? customDays; // Only used when type is custom
+  final List<int>? selectedDaysOfWeek; // Only used when type is daysOfWeek (1=Monday, 7=Sunday)
 
   const RepeatRule({
     required this.type,
     this.customDays,
+    this.selectedDaysOfWeek,
   });
 
   /// Validate the rule
   bool get isValid {
     if (type == RepeatType.custom) {
       return customDays != null && customDays! > 0;
+    }
+    if (type == RepeatType.daysOfWeek) {
+      // Must have selected days and all must be between 1-7
+      if (selectedDaysOfWeek == null || selectedDaysOfWeek!.isEmpty) {
+        return false;
+      }
+      return selectedDaysOfWeek!.every((day) => day >= 1 && day <= 7);
     }
     return true;
   }
@@ -35,6 +44,8 @@ class RepeatRule extends Equatable {
         return 7;
       case RepeatType.monthly:
         return 30; // Approximate
+      case RepeatType.daysOfWeek:
+        return 7; // Weekly interval, but specific days
       case RepeatType.custom:
         return customDays ?? 0;
     }
@@ -46,7 +57,7 @@ class RepeatRule extends Equatable {
   Map<String, dynamic> toJson() => _$RepeatRuleToJson(this);
 
   @override
-  List<Object?> get props => [type, customDays];
+  List<Object?> get props => [type, customDays, selectedDaysOfWeek];
 }
 
 /// Task Configuration

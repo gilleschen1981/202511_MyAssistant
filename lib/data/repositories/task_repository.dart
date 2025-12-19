@@ -4,6 +4,7 @@ import 'package:myassistant/data/data_sources/local/dao/plan_dao.dart';
 import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/enums/status.dart';
+import 'package:myassistant/data/models/enums/task_type.dart';
 import 'package:myassistant/domain/repositories/i_task_repository.dart';
 import 'package:myassistant/core/utils/app_logger.dart';
 
@@ -47,10 +48,18 @@ class TaskRepository implements ITaskRepository {
     }
 
     // Check if there's already an active task for this plan
-    // Only one active task is allowed per plan, regardless of window
-    final activeTask = await _taskDao.getActivePlanTask(planId);
-    if (activeTask != null) {
-      throw Exception('该计划已有活跃任务，请先完成或跳过当前任务');
+    // For daysOfWeek type plans, allow multiple active tasks (one per day)
+    // For other types, only one active task is allowed per plan
+    AppLogger.d('Checking active task constraint - plan.repeatRule.type: ${plan.repeatRule.type}, isDaysOfWeek: ${plan.repeatRule.type == RepeatType.daysOfWeek}', tag: 'TaskRepository');
+    if (plan.repeatRule.type != RepeatType.daysOfWeek) {
+      AppLogger.d('Plan is NOT daysOfWeek type, checking for active task', tag: 'TaskRepository');
+      final activeTask = await _taskDao.getActivePlanTask(planId);
+      if (activeTask != null) {
+        AppLogger.e('Active task found for non-daysOfWeek plan: ${activeTask.id}', tag: 'TaskRepository');
+        throw Exception('该计划已有活跃任务，请先完成或跳过当前任务');
+      }
+    } else {
+      AppLogger.d('Plan is daysOfWeek type, allowing multiple active tasks', tag: 'TaskRepository');
     }
 
     final now = DateTime.now();
@@ -117,6 +126,11 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<List<TaskModel>> getUpcomingTasks(String userId, {int days = 7}) async {
     return await _taskDao.getUpcomingTasks(userId, days: days);
+  }
+
+  @override
+  Future<List<TaskModel>> getFutureTasks(String userId) async {
+    return await _taskDao.getFutureTasks(userId);
   }
 
   @override

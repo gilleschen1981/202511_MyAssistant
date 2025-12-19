@@ -47,6 +47,9 @@ abstract class ITaskRepository {
   /// Get upcoming tasks
   Future<List<TaskModel>> getUpcomingTasks(String userId, {int days = 7});
 
+  /// Get all future tasks (from now onwards, no limit)
+  Future<List<TaskModel>> getFutureTasks(String userId);
+
   /// Get overdue tasks
   Future<List<TaskModel>> getOverdueTasks(String userId);
 
