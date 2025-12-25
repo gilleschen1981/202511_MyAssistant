@@ -141,8 +141,7 @@ class TaskGenerationService {
       AppLogger.d('Found ${existingTasks.length} existing tasks for plan', tag: 'TaskGenerationService');
 
       final hasTaskForDay = existingTasks.any((t) =>
-          _isSameDay(t.windowStartTime, window.start) &&
-          t.status == TaskStatus.active);
+          _isSameDay(t.windowStartTime, window.start));
 
       if (hasTaskForDay) {
         AppLogger.d('Task already exists for ${window.start}, skipping', tag: 'TaskGenerationService');
