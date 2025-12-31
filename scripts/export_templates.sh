@@ -176,7 +176,7 @@ SELECT json_group_array(
         'name', name,
         'description', description,
         'status', status,
-        'repeatRule', json_object('type', repeat_type, 'customDays', custom_days),
+        'repeatRule', json_object('type', repeat_type, 'customDays', custom_days, 'selectedDaysOfWeek', json(selected_days_of_week)),
         'taskConfig', json(task_config)
     )
 )
@@ -216,7 +216,7 @@ SELECT json_group_array(
         'name', name,
         'description', description,
         'status', status,
-        'repeatRule', json_object('type', repeat_type, 'customDays', custom_days),
+        'repeatRule', json_object('type', repeat_type, 'customDays', custom_days, 'selectedDaysOfWeek', json(selected_days_of_week)),
         'taskConfig', json(task_config)
     )
 )

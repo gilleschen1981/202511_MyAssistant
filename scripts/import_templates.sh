@@ -238,12 +238,20 @@ while read -r plan_json; do
     # Extract repeat rule components
     REPEAT_TYPE=$(echo "$plan_json" | jq -r '.repeatRule.type // "oneTime"')
     CUSTOM_DAYS=$(echo "$plan_json" | jq -r '.repeatRule.customDays // null')
+    SELECTED_DAYS=$(echo "$plan_json" | jq -c '.repeatRule.selectedDaysOfWeek // null')
 
     # Use customDays directly (it's already a number or null)
     if [ "$CUSTOM_DAYS" != "null" ] && [ -n "$CUSTOM_DAYS" ]; then
         CUSTOM_DAYS_VAL="$CUSTOM_DAYS"
     else
         CUSTOM_DAYS_VAL="NULL"
+    fi
+
+    # Handle selectedDaysOfWeek (it's already JSON or null)
+    if [ "$SELECTED_DAYS" != "null" ] && [ -n "$SELECTED_DAYS" ]; then
+        SELECTED_DAYS_VAL="'$SELECTED_DAYS'"
+    else
+        SELECTED_DAYS_VAL="NULL"
     fi
 
     TASK_CONFIG=$(echo "$plan_json" | jq -c '.taskConfig // {}')
@@ -270,8 +278,8 @@ while read -r plan_json; do
 
     # Insert into database
     sqlite3 "$TEMP_DB" <<EOF
-INSERT INTO plans (id, user_id, goal_id, name, description, start_date, end_date, repeat_type, custom_days, task_config, status, created_at, updated_at, total_task_count, completed_task_count, skipped_task_count, completion_rate)
-VALUES ('$NEW_PLAN_ID', '$USER_ID', '$GOAL_ID', '$NAME', '$DESCRIPTION', '$START_DATE', '$END_DATE', '$REPEAT_TYPE', $CUSTOM_DAYS_VAL, '$TASK_CONFIG', '$STATUS', $TIMESTAMP, $TIMESTAMP, 0, 0, 0, 0.0);
+INSERT INTO plans (id, user_id, goal_id, name, description, start_date, end_date, repeat_type, custom_days, selected_days_of_week, task_config, status, created_at, updated_at, total_task_count, completed_task_count, skipped_task_count, completion_rate)
+VALUES ('$NEW_PLAN_ID', '$USER_ID', '$GOAL_ID', '$NAME', '$DESCRIPTION', '$START_DATE', '$END_DATE', '$REPEAT_TYPE', $CUSTOM_DAYS_VAL, $SELECTED_DAYS_VAL, '$TASK_CONFIG', '$STATUS', $TIMESTAMP, $TIMESTAMP, 0, 0, 0, 0.0);
 EOF
 
     echo -e "${GREEN}✓${NC} Imported plan: $NAME (id: ${NEW_PLAN_ID:0:8}...)"
