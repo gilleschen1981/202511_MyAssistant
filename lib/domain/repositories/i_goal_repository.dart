@@ -18,6 +18,9 @@ abstract class IGoalRepository {
   /// Get goal by ID
   Future<GoalModel?> getGoalById(String goalId);
 
+  /// Get goal by user ID and title (for uniqueness validation)
+  Future<GoalModel?> getGoalByUserAndTitle(String userId, String title);
+
   /// Get all goals for user
   Future<List<GoalModel>> getUserGoals(String userId);
 

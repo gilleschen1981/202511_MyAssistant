@@ -85,15 +85,11 @@ class GoalManagementService {
     _validateGoalInput(title, description, deadline);
     AppLogger.d('Input validation passed', tag: 'GoalManagementService');
 
-    // 2. Check for duplicate goals
+    // 2. Check for duplicate goals (titles are unique within user scope)
     AppLogger.d('Checking for duplicate goals...', tag: 'GoalManagementService');
-    final existingGoals = await _goalRepository.getUserGoals(userId);
-    AppLogger.d('Found ${existingGoals.length} existing goals', tag: 'GoalManagementService');
-    final isDuplicate = existingGoals.any(
-      (g) => g.title.toLowerCase() == title.toLowerCase() && g.deletedAt == null,
-    );
+    final existingGoal = await _goalRepository.getGoalByUserAndTitle(userId, title);
 
-    if (isDuplicate) {
+    if (existingGoal != null) {
       AppLogger.w('Duplicate goal found with title: $title', tag: 'GoalManagementService');
       throw const ValidationException('A goal with this title already exists');
     }

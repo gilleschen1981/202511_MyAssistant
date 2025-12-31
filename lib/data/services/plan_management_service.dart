@@ -403,9 +403,8 @@ class PlanManagementService {
     }
 
     // 2. Check for duplicate name (names are unique within user scope)
-    final existingPlans = await _planRepository.getActivePlans(userId);
-    final isDuplicate = existingPlans.any((p) => p.name == name && !p.isDeleted);
-    if (isDuplicate) {
+    final existingPlan = await _planRepository.getPlanByUserAndName(userId, name);
+    if (existingPlan != null) {
       errors.add('A plan with this name already exists');
     }
 

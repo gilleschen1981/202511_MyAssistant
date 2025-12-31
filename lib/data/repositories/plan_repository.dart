@@ -203,6 +203,11 @@ class PlanRepository implements IPlanRepository {
   }
 
   @override
+  Future<PlanModel?> getPlanByUserAndName(String userId, String name) async {
+    return await _planDao.getPlanByUserAndName(userId, name);
+  }
+
+  @override
   Future<Map<String, dynamic>> getPlanStatistics(String planId) async {
     return await _planDao.getPlanStatistics(planId);
   }

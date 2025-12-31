@@ -83,6 +83,24 @@ class GoalDao {
     return _mapToGoal(maps.first, planIds);
   }
 
+  /// Get goal by user ID and title
+  Future<GoalModel?> getGoalByUserAndTitle(String userId, String title) async {
+    final db = await _database.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      _tableGoals,
+      where: 'user_id = ? AND title = ? AND status != ?',
+      whereArgs: [userId, title, 'deleted'],
+      limit: 1,
+    );
+
+    if (maps.isEmpty) return null;
+
+    // Get plan IDs for this goal
+    final planIds = await _getPlanIdsForGoal(maps.first['id'] as String);
+
+    return _mapToGoal(maps.first, planIds);
+  }
+
   /// Get all goals for user
   Future<List<GoalModel>> getUserGoals(String userId) async {
     final db = await _database.database;

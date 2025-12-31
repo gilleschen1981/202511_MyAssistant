@@ -183,12 +183,9 @@ DEFAULT_DEADLINE=2524608000
 GOAL_INDEX=0
 declare -a GOAL_ID_MAP  # Array to map index to new goal ID
 IMPORTED_GOALS=0
+UPDATED_GOALS=0
 
 while read -r goal_json; do
-    # Generate new UUID for goal
-    NEW_GOAL_ID=$(generate_uuid)
-    GOAL_ID_MAP+=("$NEW_GOAL_ID")  # Append to array
-
     # Extract goal fields
     TITLE=$(echo "$goal_json" | jq -r '.title')
     DESCRIPTION=$(echo "$goal_json" | jq -r '.description // ""')
@@ -198,32 +195,57 @@ while read -r goal_json; do
     SUCCESS_CRITERIA=$(echo "$goal_json" | jq -r '.successCriteria // ""')
 
     # Escape values for SQL
-    TITLE=$(sql_escape "$TITLE")
+    TITLE_ESCAPED=$(sql_escape "$TITLE")
     DESCRIPTION=$(sql_escape "$DESCRIPTION")
     SUCCESS_CRITERIA=$(sql_escape "$SUCCESS_CRITERIA")
 
     # Use default deadline for templates (far future date)
     DEADLINE_VAL="$DEFAULT_DEADLINE"
 
-    # Insert into database
-    sqlite3 "$TEMP_DB" <<EOF
-INSERT INTO goals (id, user_id, title, description, priority, tags, status, deadline, success_criteria, created_at, updated_at)
-VALUES ('$NEW_GOAL_ID', '$USER_ID', '$TITLE', '$DESCRIPTION', '$PRIORITY', '$TAGS', '$STATUS', $DEADLINE_VAL, '$SUCCESS_CRITERIA', $TIMESTAMP, $TIMESTAMP);
+    # Check if goal with same title already exists
+    EXISTING_GOAL_ID=$(sqlite3 "$TEMP_DB" "SELECT id FROM goals WHERE user_id='$USER_ID' AND title='$TITLE_ESCAPED' AND status!='deleted' LIMIT 1;")
+
+    if [ -n "$EXISTING_GOAL_ID" ]; then
+        # Update existing goal
+        GOAL_ID_MAP+=("$EXISTING_GOAL_ID")  # Use existing ID
+
+        sqlite3 "$TEMP_DB" <<EOF
+UPDATE goals
+SET description='$DESCRIPTION',
+    priority='$PRIORITY',
+    tags='$TAGS',
+    status='$STATUS',
+    deadline=$DEADLINE_VAL,
+    success_criteria='$SUCCESS_CRITERIA',
+    updated_at=$TIMESTAMP
+WHERE id='$EXISTING_GOAL_ID';
 EOF
 
-    echo -e "${GREEN}✓${NC} Imported goal: $TITLE (id: ${NEW_GOAL_ID:0:8}...)"
+        echo -e "${BLUE}🔄${NC} Updated goal: $TITLE (id: ${EXISTING_GOAL_ID:0:8}...)"
+        ((UPDATED_GOALS++))
+    else
+        # Create new goal
+        NEW_GOAL_ID=$(generate_uuid)
+        GOAL_ID_MAP+=("$NEW_GOAL_ID")  # Append to array
+
+        sqlite3 "$TEMP_DB" <<EOF
+INSERT INTO goals (id, user_id, title, description, priority, tags, status, deadline, success_criteria, created_at, updated_at)
+VALUES ('$NEW_GOAL_ID', '$USER_ID', '$TITLE_ESCAPED', '$DESCRIPTION', '$PRIORITY', '$TAGS', '$STATUS', $DEADLINE_VAL, '$SUCCESS_CRITERIA', $TIMESTAMP, $TIMESTAMP);
+EOF
+
+        echo -e "${GREEN}✓${NC} Imported goal: $TITLE (id: ${NEW_GOAL_ID:0:8}...)"
+        ((IMPORTED_GOALS++))
+    fi
+
     ((GOAL_INDEX++))
-    ((IMPORTED_GOALS++))
 done < <(jq -c '.goals[]' "$TEMPLATE_FILE")
 
 # Parse and import plans
 PLAN_INDEX=0
 IMPORTED_PLANS=0
+UPDATED_PLANS=0
 
 while read -r plan_json; do
-    # Generate new UUID for plan
-    NEW_PLAN_ID=$(generate_uuid)
-
     # Extract plan fields
     GOAL_INDEX_REF=$(echo "$plan_json" | jq -r '.goal_index // 0')
     GOAL_TITLE=$(echo "$plan_json" | jq -r '.goal_title // ""')
@@ -260,7 +282,7 @@ while read -r plan_json; do
     if [ ! -z "$GOAL_TITLE" ] && [ "$GOAL_TITLE" != "null" ]; then
         # Find goal by title
         GOAL_TITLE_ESCAPED=$(sql_escape "$GOAL_TITLE")
-        GOAL_ID=$(sqlite3 "$TEMP_DB" "SELECT id FROM goals WHERE user_id='$USER_ID' AND title='$GOAL_TITLE_ESCAPED' LIMIT 1;")
+        GOAL_ID=$(sqlite3 "$TEMP_DB" "SELECT id FROM goals WHERE user_id='$USER_ID' AND title='$GOAL_TITLE_ESCAPED' AND status!='deleted' LIMIT 1;")
     else
         # Use goal index mapping
         GOAL_ID="${GOAL_ID_MAP[$GOAL_INDEX_REF]}"
@@ -273,18 +295,44 @@ while read -r plan_json; do
     fi
 
     # Escape values for SQL
-    NAME=$(sql_escape "$NAME")
+    NAME_ESCAPED=$(sql_escape "$NAME")
     DESCRIPTION=$(sql_escape "$DESCRIPTION")
 
-    # Insert into database
-    sqlite3 "$TEMP_DB" <<EOF
-INSERT INTO plans (id, user_id, goal_id, name, description, start_date, end_date, repeat_type, custom_days, selected_days_of_week, task_config, status, created_at, updated_at, total_task_count, completed_task_count, skipped_task_count, completion_rate)
-VALUES ('$NEW_PLAN_ID', '$USER_ID', '$GOAL_ID', '$NAME', '$DESCRIPTION', '$START_DATE', '$END_DATE', '$REPEAT_TYPE', $CUSTOM_DAYS_VAL, $SELECTED_DAYS_VAL, '$TASK_CONFIG', '$STATUS', $TIMESTAMP, $TIMESTAMP, 0, 0, 0, 0.0);
+    # Check if plan with same name already exists
+    EXISTING_PLAN_ID=$(sqlite3 "$TEMP_DB" "SELECT id FROM plans WHERE user_id='$USER_ID' AND name='$NAME_ESCAPED' AND status!='deleted' LIMIT 1;")
+
+    if [ -n "$EXISTING_PLAN_ID" ]; then
+        # Update existing plan (DO NOT update start_date, DO update end_date)
+        sqlite3 "$TEMP_DB" <<EOF
+UPDATE plans
+SET description='$DESCRIPTION',
+    goal_id='$GOAL_ID',
+    end_date=$END_DATE,
+    repeat_type='$REPEAT_TYPE',
+    custom_days=$CUSTOM_DAYS_VAL,
+    selected_days_of_week=$SELECTED_DAYS_VAL,
+    task_config='$TASK_CONFIG',
+    status='$STATUS',
+    updated_at=$TIMESTAMP
+WHERE id='$EXISTING_PLAN_ID';
 EOF
 
-    echo -e "${GREEN}✓${NC} Imported plan: $NAME (id: ${NEW_PLAN_ID:0:8}...)"
+        echo -e "${BLUE}🔄${NC} Updated plan: $NAME (id: ${EXISTING_PLAN_ID:0:8}...)"
+        ((UPDATED_PLANS++))
+    else
+        # Create new plan
+        NEW_PLAN_ID=$(generate_uuid)
+
+        sqlite3 "$TEMP_DB" <<EOF
+INSERT INTO plans (id, user_id, goal_id, name, description, start_date, end_date, repeat_type, custom_days, selected_days_of_week, task_config, status, created_at, updated_at, total_task_count, completed_task_count, skipped_task_count, completion_rate)
+VALUES ('$NEW_PLAN_ID', '$USER_ID', '$GOAL_ID', '$NAME_ESCAPED', '$DESCRIPTION', '$START_DATE', '$END_DATE', '$REPEAT_TYPE', $CUSTOM_DAYS_VAL, $SELECTED_DAYS_VAL, '$TASK_CONFIG', '$STATUS', $TIMESTAMP, $TIMESTAMP, 0, 0, 0, 0.0);
+EOF
+
+        echo -e "${GREEN}✓${NC} Imported plan: $NAME (id: ${NEW_PLAN_ID:0:8}...)"
+        ((IMPORTED_PLANS++))
+    fi
+
     ((PLAN_INDEX++))
-    ((IMPORTED_PLANS++))
 done < <(jq -c '.plans[]' "$TEMPLATE_FILE")
 
 echo ""
@@ -304,8 +352,14 @@ echo -e "${GREEN}✓ Database updated on device${NC}"
 echo ""
 
 echo -e "${GREEN}✅ Import completed successfully!${NC}"
-echo -e "${GREEN}✓${NC} Imported $IMPORTED_GOALS goal(s)"
-echo -e "${GREEN}✓${NC} Imported $IMPORTED_PLANS plan(s)"
 echo ""
-echo -e "${YELLOW}💡 Note:${NC} Please restart the app to see the imported data."
+echo -e "${BLUE}📊 Import Summary:${NC}"
+echo -e "${GREEN}  Goals:${NC}"
+echo -e "    • Imported: $IMPORTED_GOALS"
+echo -e "    • Updated:  $UPDATED_GOALS"
+echo -e "${GREEN}  Plans:${NC}"
+echo -e "    • Imported: $IMPORTED_PLANS"
+echo -e "    • Updated:  $UPDATED_PLANS"
+echo ""
+echo -e "${YELLOW}💡 Note:${NC} Please restart the app to see the imported/updated data."
 echo -e "   Tasks will be auto-generated based on plan repeat rules."

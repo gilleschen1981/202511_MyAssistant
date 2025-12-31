@@ -13,7 +13,7 @@ class Goal {
   // 基础字段
   String id;                    // 唯一标识符（UUID）
   String userId;                // 所属用户ID
-  String title;                 // 目标标题（必填）
+  String title;                 // 目标标题（必填，用户范围内唯一）
   String? description;          // 目标描述（选填）
 
   // 分类和标签
@@ -732,6 +732,7 @@ Future<List<Goal>> getAllGoalsIncludingDeleted(String userId) async {
 
 ### 3.1 目标相关规则
 - 目标标题不能为空
+- 目标标题在用户范围内必须唯一（同一用户不能有同名的未删除目标）
 - 目标优先级默认为中等
 - 已完成的目标不能修改
 

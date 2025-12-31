@@ -248,6 +248,7 @@ class AppDatabase implements DatabaseInterface {
     batch.execute("CREATE INDEX idx_goals_status ON goals(status) WHERE status != 'deleted'");
     batch.execute("CREATE INDEX idx_goals_priority ON goals(priority) WHERE status != 'deleted'");
     batch.execute("CREATE INDEX idx_goals_deadline ON goals(deadline) WHERE status != 'deleted'");
+    batch.execute("CREATE UNIQUE INDEX idx_goals_user_title ON goals(user_id, title) WHERE status != 'deleted'");
 
     // Plans indexes
     batch.execute('CREATE INDEX idx_plans_user_id ON plans(user_id) WHERE status != \'deleted\'');

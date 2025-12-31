@@ -72,7 +72,7 @@ CREATE TABLE user_settings (
 CREATE TABLE goals (
     id TEXT PRIMARY KEY,                    -- UUID
     user_id TEXT NOT NULL,                  -- 用户ID
-    title TEXT NOT NULL,                    -- 标题
+    title TEXT NOT NULL,                    -- 标题（用户范围内唯一）
     description TEXT,                       -- 描述
     tags TEXT,                              -- 标签(JSON数组)
     deadline INTEGER,                       -- 截止日期
@@ -93,6 +93,9 @@ CREATE INDEX idx_goals_user_id ON goals(user_id) WHERE status != 'deleted';
 CREATE INDEX idx_goals_status ON goals(status) WHERE status != 'deleted';
 CREATE INDEX idx_goals_priority ON goals(priority) WHERE status != 'deleted';
 CREATE INDEX idx_goals_deadline ON goals(deadline) WHERE status != 'deleted';
+
+-- 唯一约束：同一用户不能有同名的未删除目标
+CREATE UNIQUE INDEX idx_goals_user_title ON goals(user_id, title) WHERE status != 'deleted';
 ```
 
 ### 2.4 计划表（plans）

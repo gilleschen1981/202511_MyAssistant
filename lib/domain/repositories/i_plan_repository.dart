@@ -46,6 +46,9 @@ abstract class IPlanRepository {
   /// Check if plan name exists for user (for creation validation)
   Future<bool> isPlanNameExists(String userId, String name);
 
+  /// Get plan by user ID and name (for uniqueness validation)
+  Future<PlanModel?> getPlanByUserAndName(String userId, String name);
+
   /// Get plan statistics
   Future<Map<String, dynamic>> getPlanStatistics(String planId);
 

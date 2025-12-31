@@ -222,6 +222,21 @@ class PlanDao {
     return count != null && count > 0;
   }
 
+  /// Get plan by user ID and name
+  Future<PlanModel?> getPlanByUserAndName(String userId, String name) async {
+    final db = await _database.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      _tablePlans,
+      where: 'user_id = ? AND name = ? AND status != ?',
+      whereArgs: [userId, name, 'deleted'],
+      limit: 1,
+    );
+
+    if (maps.isEmpty) return null;
+
+    return _mapToPlan(maps.first);
+  }
+
   /// Get plan statistics
   Future<Map<String, dynamic>> getPlanStatistics(String planId) async {
     final db = await _database.database;

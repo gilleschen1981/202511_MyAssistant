@@ -58,6 +58,11 @@ class GoalRepository implements IGoalRepository {
   }
 
   @override
+  Future<GoalModel?> getGoalByUserAndTitle(String userId, String title) async {
+    return await _goalDao.getGoalByUserAndTitle(userId, title);
+  }
+
+  @override
   Future<List<GoalModel>> getUserGoals(String userId) async {
     return await _goalDao.getUserGoals(userId);
   }
