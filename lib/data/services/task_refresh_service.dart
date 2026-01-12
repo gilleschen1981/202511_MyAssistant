@@ -26,6 +26,12 @@ class TaskRefreshService {
 
   Timer? _periodicTimer;
 
+  /// Lock to prevent concurrent refresh operations
+  bool _isRefreshing = false;
+
+  /// Completer for waiting on ongoing refresh
+  Completer<RefreshResult>? _refreshCompleter;
+
   TaskRefreshService({
     required ITaskRepository taskRepository,
     required IPlanRepository planRepository,
@@ -35,8 +41,20 @@ class TaskRefreshService {
         _generationService = generationService;
 
   /// Refresh all tasks for a user
+  /// Uses a lock to prevent concurrent refresh operations
   Future<RefreshResult> refreshAllTasks(String userId) async {
     AppLogger.i('refreshAllTasks called for user: $userId', tag: 'TaskRefreshService');
+
+    // If already refreshing, wait for the ongoing refresh to complete
+    if (_isRefreshing && _refreshCompleter != null) {
+      AppLogger.d('Refresh already in progress, waiting...', tag: 'TaskRefreshService');
+      return _refreshCompleter!.future;
+    }
+
+    // Acquire lock
+    _isRefreshing = true;
+    _refreshCompleter = Completer<RefreshResult>();
+
     final result = RefreshResult();
 
     try {
@@ -59,6 +77,11 @@ class TaskRefreshService {
       AppLogger.e('Error during refreshAllTasks', tag: 'TaskRefreshService', error: e);
       result.success = false;
       result.error = e.toString();
+    } finally {
+      // Release lock
+      _refreshCompleter?.complete(result);
+      _isRefreshing = false;
+      _refreshCompleter = null;
     }
 
     return result;
@@ -123,8 +146,20 @@ class TaskRefreshService {
   }
 
   /// Refresh tasks on app resume
+  /// Uses the same lock as refreshAllTasks to prevent concurrent operations
   Future<RefreshResult> refreshOnResume(String userId) async {
     AppLogger.i('refreshOnResume called for user: $userId', tag: 'TaskRefreshService');
+
+    // If already refreshing, wait for the ongoing refresh to complete
+    if (_isRefreshing && _refreshCompleter != null) {
+      AppLogger.d('Refresh already in progress, waiting...', tag: 'TaskRefreshService');
+      return _refreshCompleter!.future;
+    }
+
+    // Acquire lock
+    _isRefreshing = true;
+    _refreshCompleter = Completer<RefreshResult>();
+
     // Quick refresh focusing on immediate tasks
     final result = RefreshResult();
 
@@ -185,6 +220,11 @@ class TaskRefreshService {
       AppLogger.e('Error during resume refresh', tag: 'TaskRefreshService', error: e);
       result.success = false;
       result.error = e.toString();
+    } finally {
+      // Release lock
+      _refreshCompleter?.complete(result);
+      _isRefreshing = false;
+      _refreshCompleter = null;
     }
 
     return result;
