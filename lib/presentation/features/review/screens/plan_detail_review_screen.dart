@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myassistant/presentation/providers/plan_review_provider.dart';
-import 'package:myassistant/data/models/task_model.dart';
 import 'package:intl/intl.dart';
-import 'package:myassistant/data/models/enums/status.dart';
 import 'package:myassistant/presentation/features/review/widgets/completion_rate_trend_chart.dart';
 import 'package:myassistant/data/models/plan_review_model.dart';
+import 'package:myassistant/presentation/features/review/widgets/task_history_calendar.dart';
 
 /// Plan Detail Review Screen - shows detailed history and statistics for a plan
 class PlanDetailReviewScreen extends ConsumerStatefulWidget {
@@ -287,82 +286,9 @@ class _PlanDetailReviewScreenState
       );
     }
 
-    final sortedDates = tasksByDate.keys.toList()
-      ..sort((a, b) => b.compareTo(a)); // 最新的在前
-
-    return ListView.builder(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      itemCount: sortedDates.length,
-      itemBuilder: (context, index) {
-        final date = sortedDates[index];
-        final tasks = tasksByDate[date]!;
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  DateFormat('yyyy年MM月dd日').format(date),
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const Divider(height: 1),
-              ...tasks.map((task) => _buildTaskItem(context, task)),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTaskItem(BuildContext context, TaskModel task) {
-    Color statusColor;
-    IconData statusIcon;
-    String statusText;
-
-    switch (task.status) {
-      case TaskStatus.completed:
-        statusColor = Colors.green;
-        statusIcon = Icons.check_circle;
-        statusText = '已完成';
-        break;
-      case TaskStatus.skipped:
-        statusColor = Colors.orange;
-        statusIcon = Icons.skip_next;
-        statusText = '已跳过';
-        break;
-      case TaskStatus.active:
-        statusColor = Colors.blue;
-        statusIcon = Icons.play_circle;
-        statusText = '进行中';
-        break;
-      case TaskStatus.deleted:
-        statusColor = Colors.grey;
-        statusIcon = Icons.delete;
-        statusText = '已删除';
-        break;
-    }
-
-    return ListTile(
-      leading: Icon(statusIcon, color: statusColor),
-      title: Text(task.name),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(statusText, style: TextStyle(color: statusColor)),
-          if (task.completedAt != null)
-            Text('完成于: ${DateFormat('HH:mm').format(task.completedAt!)}'),
-          if (task.actualDurationMinutes != null)
-            Text('用时: ${task.actualDurationMinutes} 分钟'),
-          if (task.evaluationResult != null)
-            Text('评价: ${task.evaluationResult}'),
-        ],
-      ),
+      child: TaskHistoryCalendar(tasksByDate: tasksByDate),
     );
   }
 
