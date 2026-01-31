@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myassistant/data/models/task_model.dart';
 import 'package:myassistant/data/models/enums/task_type.dart';
 import 'package:myassistant/presentation/providers/task_list_notifier.dart';
+import 'package:myassistant/core/utils/evaluation_score_helper.dart';
 
 /// Base task execution dialog
 abstract class TaskExecutionDialog extends ConsumerStatefulWidget {
@@ -344,19 +345,72 @@ class _EvaluationTaskDialogState extends ConsumerState<EvaluationTaskDialog> {
             ),
             const SizedBox(height: 12),
 
-            // Evaluation options
-            ...options.map((option) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: ChoiceChip(
-                    label: Text(option),
-                    selected: _selectedOption == option,
-                    onSelected: (selected) {
-                      setState(() {
-                        _selectedOption = selected ? option : null;
-                      });
-                    },
+            // Evaluation options with scores
+            ...options.asMap().entries.map((entry) {
+              final index = entry.key;
+              final option = entry.value;
+              final score = EvaluationScoreHelper.calculateScore(options, index);
+              final isSelected = _selectedOption == option;
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _selectedOption = option;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? theme.colorScheme.primaryContainer
+                          : theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.outline.withValues(alpha: 0.3),
+                        width: 2,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        if (isSelected)
+                          Icon(
+                            Icons.check_circle,
+                            color: theme.colorScheme.primary,
+                          ),
+                        if (isSelected) const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            option,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _getScoreColor(score),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '$score分',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                )),
+                ),
+              );
+            }),
 
             const SizedBox(height: 16),
 
@@ -406,6 +460,16 @@ class _EvaluationTaskDialogState extends ConsumerState<EvaluationTaskDialog> {
 
     if (mounted) {
       Navigator.pop(context, true);
+    }
+  }
+
+  Color _getScoreColor(int score) {
+    if (score >= 80) {
+      return Colors.green;
+    } else if (score >= 50) {
+      return Colors.orange;
+    } else {
+      return Colors.red;
     }
   }
 }
@@ -525,21 +589,72 @@ class _CounterEvaluationTaskDialogState
               ),
               const SizedBox(height: 12),
 
-              // Evaluation options
-              Wrap(
-                spacing: 8,
-                children: options
-                    .map((option) => ChoiceChip(
-                          label: Text(option),
-                          selected: _selectedOption == option,
-                          onSelected: (selected) {
-                            setState(() {
-                              _selectedOption = selected ? option : null;
-                            });
-                          },
-                        ))
-                    .toList(),
-              ),
+              // Evaluation options with scores
+              ...options.asMap().entries.map((entry) {
+                final index = entry.key;
+                final option = entry.value;
+                final score = EvaluationScoreHelper.calculateScore(options, index);
+                final isSelected = _selectedOption == option;
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedOption = option;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? theme.colorScheme.primaryContainer
+                            : theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.outline.withValues(alpha: 0.3),
+                          width: 2,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          if (isSelected)
+                            Icon(
+                              Icons.check_circle,
+                              color: theme.colorScheme.primary,
+                            ),
+                          if (isSelected) const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              option,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: _getScoreColor(score),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '$score分',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
 
               const SizedBox(height: 16),
 
@@ -592,6 +707,16 @@ class _CounterEvaluationTaskDialogState
 
     if (mounted) {
       Navigator.pop(context, true);
+    }
+  }
+
+  Color _getScoreColor(int score) {
+    if (score >= 80) {
+      return Colors.green;
+    } else if (score >= 50) {
+      return Colors.orange;
+    } else {
+      return Colors.red;
     }
   }
 }

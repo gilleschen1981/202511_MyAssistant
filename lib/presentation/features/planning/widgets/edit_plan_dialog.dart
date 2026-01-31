@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myassistant/data/models/plan_model.dart';
 import 'package:myassistant/data/models/enums/task_type.dart';
 import 'package:myassistant/presentation/providers/plan_state_provider.dart';
+import 'package:myassistant/core/utils/evaluation_score_helper.dart';
 
 /// Dialog for editing an existing plan
 /// Note: Plan names cannot be edited due to database constraint
@@ -389,20 +390,15 @@ class _EditPlanDialogState extends ConsumerState<EditPlanDialog> {
                       ),
                       if (_evaluationOptions.isNotEmpty) ...[
                         const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _evaluationOptions.map((option) {
-                            return Chip(
-                              label: Text(option),
-                              onDeleted: () {
-                                setState(() {
-                                  _evaluationOptions.remove(option);
-                                });
-                              },
-                            );
-                          }).toList(),
+                        Text(
+                          '使用箭头调整顺序 (第一项=100分，最后一项=0分)',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontStyle: FontStyle.italic,
+                          ),
                         ),
+                        const SizedBox(height: 8),
+                        _buildEvaluationOptionsList(theme),
                       ],
 
                       // Warning about timer + evaluation constraint
@@ -710,5 +706,111 @@ class _EditPlanDialogState extends ConsumerState<EditPlanDialog> {
         );
       }).toList(),
     );
+  }
+
+  Widget _buildEvaluationOptionsList(ThemeData theme) {
+    return Column(
+      children: List.generate(_evaluationOptions.length, (index) {
+        final option = _evaluationOptions[index];
+        final score = EvaluationScoreHelper.calculateScore(_evaluationOptions, index);
+        final isFirst = index == 0;
+        final isLast = index == _evaluationOptions.length - 1;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: theme.colorScheme.outline.withValues(alpha: 0.3),
+            ),
+          ),
+          child: ListTile(
+            leading: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    iconSize: 18,
+                    icon: const Icon(Icons.arrow_upward),
+                    onPressed: isFirst ? null : () {
+                      setState(() {
+                        final item = _evaluationOptions.removeAt(index);
+                        _evaluationOptions.insert(index - 1, item);
+                      });
+                    },
+                    color: theme.colorScheme.primary,
+                    tooltip: '上移',
+                  ),
+                ),
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    iconSize: 18,
+                    icon: const Icon(Icons.arrow_downward),
+                    onPressed: isLast ? null : () {
+                      setState(() {
+                        final item = _evaluationOptions.removeAt(index);
+                        _evaluationOptions.insert(index + 1, item);
+                      });
+                    },
+                    color: theme.colorScheme.primary,
+                    tooltip: '下移',
+                  ),
+                ),
+              ],
+            ),
+            title: Text(option),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _getScoreColor(score, theme),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$score分',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  iconSize: 20,
+                  onPressed: () {
+                    setState(() {
+                      _evaluationOptions.removeAt(index);
+                    });
+                  },
+                  color: theme.colorScheme.error,
+                  tooltip: '删除',
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Color _getScoreColor(int score, ThemeData theme) {
+    if (score >= 80) {
+      return Colors.green;
+    } else if (score >= 50) {
+      return Colors.orange;
+    } else {
+      return Colors.red;
+    }
   }
 }
