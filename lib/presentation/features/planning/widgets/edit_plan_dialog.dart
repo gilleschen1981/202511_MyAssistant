@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:myassistant/data/models/plan_model.dart';
+import 'package:myassistant/data/models/enums/task_type.dart';
 import 'package:myassistant/presentation/providers/plan_state_provider.dart';
 
 /// Dialog for editing an existing plan
@@ -24,6 +25,11 @@ class _EditPlanDialogState extends ConsumerState<EditPlanDialog> {
   // Time settings
   DateTime? _endDate;
 
+  // Repeat rule settings
+  RepeatType _repeatType = RepeatType.oneTime;
+  int? _customDays;
+  final List<int> _selectedDaysOfWeek = []; // 1=Monday, 7=Sunday
+
   // Task configuration - optional fields that determine task type
   int? _durationMinutes;
   int? _repeatCount;
@@ -38,6 +44,15 @@ class _EditPlanDialogState extends ConsumerState<EditPlanDialog> {
     // Initialize with existing plan values
     _descriptionController.text = widget.plan.description ?? '';
     _endDate = widget.plan.endDate;
+
+    // Initialize repeat rule
+    _repeatType = widget.plan.repeatRule.type;
+    _customDays = widget.plan.repeatRule.customDays;
+    if (widget.plan.repeatRule.selectedDaysOfWeek != null) {
+      _selectedDaysOfWeek.addAll(widget.plan.repeatRule.selectedDaysOfWeek!);
+    }
+
+    // Initialize task config
     _durationMinutes = widget.plan.taskConfig.durationMinutes;
     _repeatCount = widget.plan.taskConfig.repeatCount;
     if (widget.plan.taskConfig.evaluationOptions != null) {
@@ -187,6 +202,79 @@ class _EditPlanDialogState extends ConsumerState<EditPlanDialog> {
                         onTap: () => _selectEndDate(context),
                         isReadOnly: false,
                       ),
+                      const SizedBox(height: 12),
+
+                      // Repeat type
+                      DropdownButtonFormField<RepeatType>(
+                        value: _repeatType,
+                        decoration: const InputDecoration(
+                          labelText: '重复频率',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.repeat),
+                        ),
+                        items: RepeatType.values.map((type) {
+                          return DropdownMenuItem(
+                            value: type,
+                            child: Text(_getRepeatTypeLabel(type)),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _repeatType = value!;
+                          });
+                        },
+                      ),
+
+                      // Custom days for custom repeat type
+                      if (_repeatType == RepeatType.custom) ...[
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          initialValue: _customDays?.toString() ?? '',
+                          decoration: const InputDecoration(
+                            labelText: '自定义间隔天数',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.calendar_today),
+                            suffix: Text('天'),
+                          ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            setState(() {
+                              _customDays = value.isEmpty ? null : int.tryParse(value);
+                            });
+                          },
+                          validator: (value) {
+                            if (_repeatType == RepeatType.custom) {
+                              final days = int.tryParse(value ?? '');
+                              if (days == null || days <= 0) {
+                                return '请输入有效的天数';
+                              }
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+
+                      // Days of week selector for daysOfWeek repeat type
+                      if (_repeatType == RepeatType.daysOfWeek) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          '选择星期',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildDaysOfWeekSelector(theme),
+                        if (_selectedDaysOfWeek.isEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '请至少选择一天',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.error,
+                            ),
+                          ),
+                        ],
+                      ],
                       const SizedBox(height: 24),
 
                       // Task configuration
@@ -460,6 +548,14 @@ class _EditPlanDialogState extends ConsumerState<EditPlanDialog> {
       return;
     }
 
+    // Validation: daysOfWeek must have at least one day selected
+    if (_repeatType == RepeatType.daysOfWeek && _selectedDaysOfWeek.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请至少选择一天')),
+      );
+      return;
+    }
+
     if (_endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('请选择结束日期')),
@@ -486,6 +582,15 @@ class _EditPlanDialogState extends ConsumerState<EditPlanDialog> {
         evaluationOptions: _evaluationOptions.isNotEmpty ? _evaluationOptions : null,
       );
 
+      // Create repeat rule
+      final repeatRule = RepeatRule(
+        type: _repeatType,
+        customDays: _repeatType == RepeatType.custom ? _customDays : null,
+        selectedDaysOfWeek: _repeatType == RepeatType.daysOfWeek && _selectedDaysOfWeek.isNotEmpty
+            ? _selectedDaysOfWeek
+            : null,
+      );
+
       // Update plan
       final plan = await ref.read(planListProvider.notifier).updatePlan(
         planId: widget.plan.id,
@@ -494,6 +599,7 @@ class _EditPlanDialogState extends ConsumerState<EditPlanDialog> {
             : null,
         endDate: _endDate,
         taskConfig: taskConfig,
+        repeatRule: repeatRule,
       );
 
       if (plan != null && mounted) {
@@ -523,5 +629,86 @@ class _EditPlanDialogState extends ConsumerState<EditPlanDialog> {
 
   String _formatDate(DateTime date) {
     return '${date.year}年${date.month}月${date.day}日';
+  }
+
+  String _getRepeatTypeLabel(RepeatType type) {
+    switch (type) {
+      case RepeatType.oneTime:
+        return '一次性';
+      case RepeatType.daily:
+        return '每日';
+      case RepeatType.weekly:
+        return '每周';
+      case RepeatType.monthly:
+        return '每月';
+      case RepeatType.daysOfWeek:
+        return '选择星期';
+      case RepeatType.custom:
+        return '自定义';
+    }
+  }
+
+  Widget _buildDaysOfWeekSelector(ThemeData theme) {
+    // Map day numbers to simple Chinese names
+    final dayNames = {
+      1: '一',
+      2: '二',
+      3: '三',
+      4: '四',
+      5: '五',
+      6: '六',
+      7: '日',
+    };
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: dayNames.entries.map((entry) {
+        final dayNumber = entry.key;
+        final dayName = entry.value;
+        final isSelected = _selectedDaysOfWeek.contains(dayNumber);
+
+        return Expanded(
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                if (isSelected) {
+                  _selectedDaysOfWeek.remove(dayNumber);
+                } else {
+                  _selectedDaysOfWeek.add(dayNumber);
+                  _selectedDaysOfWeek.sort();
+                }
+              });
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? theme.colorScheme.primaryContainer
+                    : Colors.transparent,
+                border: Border.all(
+                  color: isSelected
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outline,
+                  width: 1.5,
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Text(
+                  dayName,
+                  style: TextStyle(
+                    color: isSelected
+                        ? theme.colorScheme.onPrimaryContainer
+                        : theme.colorScheme.onSurface,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
   }
 }

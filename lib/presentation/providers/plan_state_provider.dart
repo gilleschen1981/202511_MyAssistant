@@ -172,6 +172,7 @@ class PlanListNotifier extends StateNotifier<PlanListState> {
     String? description,
     DateTime? endDate,
     TaskConfiguration? taskConfig,
+    RepeatRule? repeatRule,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
 
@@ -181,6 +182,7 @@ class PlanListNotifier extends StateNotifier<PlanListState> {
         description: description,
         endDate: endDate,
         taskConfig: taskConfig,
+        repeatRule: repeatRule,
       );
 
       // Reload plans

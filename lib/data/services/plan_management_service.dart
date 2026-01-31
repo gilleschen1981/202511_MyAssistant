@@ -156,6 +156,7 @@ class PlanManagementService {
     String? description,
     DateTime? endDate,
     TaskConfiguration? taskConfig,
+    RepeatRule? repeatRule,
   }) async {
     // 1. Get existing plan
     final plan = await _planRepository.getPlanById(planId);
@@ -182,11 +183,16 @@ class PlanManagementService {
       throw const ValidationException('Invalid task configuration');
     }
 
+    if (repeatRule != null && !repeatRule.isValid) {
+      throw const ValidationException('Invalid repeat rule');
+    }
+
     // 4. Create updated plan (name is immutable)
     final updatedPlan = plan.copyWith(
       description: description ?? plan.description,
       endDate: endDate ?? plan.endDate,
       taskConfig: taskConfig ?? plan.taskConfig,
+      repeatRule: repeatRule ?? plan.repeatRule,
       updatedAt: DateTime.now(),
     );
 

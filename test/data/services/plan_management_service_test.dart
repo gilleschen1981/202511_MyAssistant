@@ -567,6 +567,170 @@ void main() {
         throwsA(isA<ValidationException>()),
       );
     });
+
+    test('should successfully update repeatRule from weekly to daily', () async {
+      // Arrange
+      const planId = 'plan-123';
+      final plan = createTestPlan(id: planId);
+      final updatedPlan = plan.copyWith(
+        repeatRule: const RepeatRule(type: RepeatType.daily),
+      );
+
+      when(mockPlanRepository.getPlanById(planId))
+          .thenAnswer((_) async => plan);
+      when(mockPlanRepository.updatePlan(any))
+          .thenAnswer((_) async => updatedPlan);
+
+      // Act
+      final result = await service.updatePlan(
+        planId: planId,
+        repeatRule: const RepeatRule(type: RepeatType.daily),
+      );
+
+      // Assert
+      expect(result.repeatRule.type, RepeatType.daily);
+      verify(mockPlanRepository.updatePlan(any)).called(1);
+    });
+
+    test('should successfully update repeatRule to custom with customDays', () async {
+      // Arrange
+      const planId = 'plan-123';
+      final plan = createTestPlan(id: planId);
+      const newRepeatRule = RepeatRule(type: RepeatType.custom, customDays: 10);
+      final updatedPlan = plan.copyWith(repeatRule: newRepeatRule);
+
+      when(mockPlanRepository.getPlanById(planId))
+          .thenAnswer((_) async => plan);
+      when(mockPlanRepository.updatePlan(any))
+          .thenAnswer((_) async => updatedPlan);
+
+      // Act
+      final result = await service.updatePlan(
+        planId: planId,
+        repeatRule: newRepeatRule,
+      );
+
+      // Assert
+      expect(result.repeatRule.type, RepeatType.custom);
+      expect(result.repeatRule.customDays, 10);
+      verify(mockPlanRepository.updatePlan(any)).called(1);
+    });
+
+    test('should successfully update repeatRule to daysOfWeek with selectedDaysOfWeek', () async {
+      // Arrange
+      const planId = 'plan-123';
+      final plan = createTestPlan(id: planId);
+      const newRepeatRule = RepeatRule(
+        type: RepeatType.daysOfWeek,
+        selectedDaysOfWeek: [1, 3, 5], // Monday, Wednesday, Friday
+      );
+      final updatedPlan = plan.copyWith(repeatRule: newRepeatRule);
+
+      when(mockPlanRepository.getPlanById(planId))
+          .thenAnswer((_) async => plan);
+      when(mockPlanRepository.updatePlan(any))
+          .thenAnswer((_) async => updatedPlan);
+
+      // Act
+      final result = await service.updatePlan(
+        planId: planId,
+        repeatRule: newRepeatRule,
+      );
+
+      // Assert
+      expect(result.repeatRule.type, RepeatType.daysOfWeek);
+      expect(result.repeatRule.selectedDaysOfWeek, [1, 3, 5]);
+      verify(mockPlanRepository.updatePlan(any)).called(1);
+    });
+
+    test('should throw ValidationException for invalid repeatRule (custom without customDays)', () async {
+      // Arrange
+      const planId = 'plan-123';
+      final plan = createTestPlan(id: planId);
+
+      when(mockPlanRepository.getPlanById(planId))
+          .thenAnswer((_) async => plan);
+
+      // Act & Assert
+      expect(
+        () => service.updatePlan(
+          planId: planId,
+          repeatRule: const RepeatRule(type: RepeatType.custom), // Invalid: no customDays
+        ),
+        throwsA(isA<ValidationException>()),
+      );
+    });
+
+    test('should throw ValidationException for invalid daysOfWeek (empty selectedDaysOfWeek)', () async {
+      // Arrange
+      const planId = 'plan-123';
+      final plan = createTestPlan(id: planId);
+
+      when(mockPlanRepository.getPlanById(planId))
+          .thenAnswer((_) async => plan);
+
+      // Act & Assert
+      expect(
+        () => service.updatePlan(
+          planId: planId,
+          repeatRule: const RepeatRule(type: RepeatType.daysOfWeek), // Invalid: empty days
+        ),
+        throwsA(isA<ValidationException>()),
+      );
+    });
+
+    test('should throw ValidationException for invalid daysOfWeek (out-of-range days)', () async {
+      // Arrange
+      const planId = 'plan-123';
+      final plan = createTestPlan(id: planId);
+
+      when(mockPlanRepository.getPlanById(planId))
+          .thenAnswer((_) async => plan);
+
+      // Act & Assert
+      expect(
+        () => service.updatePlan(
+          planId: planId,
+          repeatRule: const RepeatRule(
+            type: RepeatType.daysOfWeek,
+            selectedDaysOfWeek: [0, 8], // Invalid: must be 1-7
+          ),
+        ),
+        throwsA(isA<ValidationException>()),
+      );
+    });
+
+    test('should update repeatRule combined with other fields', () async {
+      // Arrange
+      const planId = 'plan-123';
+      final plan = createTestPlan(id: planId);
+      const newRepeatRule = RepeatRule(type: RepeatType.daily);
+      final newEndDate = plan.endDate.add(const Duration(days: 10));
+      final updatedPlan = plan.copyWith(
+        description: 'Updated description',
+        endDate: newEndDate,
+        repeatRule: newRepeatRule,
+      );
+
+      when(mockPlanRepository.getPlanById(planId))
+          .thenAnswer((_) async => plan);
+      when(mockPlanRepository.updatePlan(any))
+          .thenAnswer((_) async => updatedPlan);
+
+      // Act
+      final result = await service.updatePlan(
+        planId: planId,
+        description: 'Updated description',
+        endDate: newEndDate,
+        repeatRule: newRepeatRule,
+      );
+
+      // Assert
+      expect(result.description, 'Updated description');
+      expect(result.endDate, newEndDate);
+      expect(result.repeatRule.type, RepeatType.daily);
+      verify(mockPlanRepository.updatePlan(any)).called(1);
+    });
   });
 
   group('PlanManagementService - deletePlan', () {

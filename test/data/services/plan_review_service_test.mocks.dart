@@ -175,6 +175,17 @@ class MockIPlanRepository extends _i1.Mock implements _i4.IPlanRepository {
           as _i5.Future<bool>);
 
   @override
+  _i5.Future<_i2.PlanModel?> getPlanByUserAndName(
+    String? userId,
+    String? name,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#getPlanByUserAndName, [userId, name]),
+            returnValue: _i5.Future<_i2.PlanModel?>.value(),
+          )
+          as _i5.Future<_i2.PlanModel?>);
+
+  @override
   _i5.Future<Map<String, dynamic>> getPlanStatistics(String? planId) =>
       (super.noSuchMethod(
             Invocation.method(#getPlanStatistics, [planId]),
@@ -397,6 +408,16 @@ class MockITaskRepository extends _i1.Mock implements _i6.ITaskRepository {
   }) =>
       (super.noSuchMethod(
             Invocation.method(#getUpcomingTasks, [userId], {#days: days}),
+            returnValue: _i5.Future<List<_i3.TaskModel>>.value(
+              <_i3.TaskModel>[],
+            ),
+          )
+          as _i5.Future<List<_i3.TaskModel>>);
+
+  @override
+  _i5.Future<List<_i3.TaskModel>> getFutureTasks(String? userId) =>
+      (super.noSuchMethod(
+            Invocation.method(#getFutureTasks, [userId]),
             returnValue: _i5.Future<List<_i3.TaskModel>>.value(
               <_i3.TaskModel>[],
             ),

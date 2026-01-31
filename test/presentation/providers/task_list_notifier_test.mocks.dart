@@ -196,6 +196,16 @@ class MockITaskRepository extends _i1.Mock implements _i5.ITaskRepository {
           as _i6.Future<List<_i2.TaskModel>>);
 
   @override
+  _i6.Future<List<_i2.TaskModel>> getFutureTasks(String? userId) =>
+      (super.noSuchMethod(
+            Invocation.method(#getFutureTasks, [userId]),
+            returnValue: _i6.Future<List<_i2.TaskModel>>.value(
+              <_i2.TaskModel>[],
+            ),
+          )
+          as _i6.Future<List<_i2.TaskModel>>);
+
+  @override
   _i6.Future<List<_i2.TaskModel>> getOverdueTasks(String? userId) =>
       (super.noSuchMethod(
             Invocation.method(#getOverdueTasks, [userId]),
