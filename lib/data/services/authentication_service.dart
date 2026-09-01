@@ -372,6 +372,9 @@ class AuthenticationService {
     if (username.isEmpty) {
       throw const ValidationException('Username cannot be empty');
     }
+    if (username.length < 3) {
+      throw const ValidationException('Username must be at least 3 characters');
+    }
     if (username.length > 20) {
       throw const ValidationException('Username must be less than 20 characters');
     }
@@ -401,6 +404,7 @@ class AuthenticationService {
 
   /// Check if email is valid
   bool _isEmailValid(String email) {
+    if (email.contains('..')) return false;
     return RegExp(
       r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
     ).hasMatch(email);

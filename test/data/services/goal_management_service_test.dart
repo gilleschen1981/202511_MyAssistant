@@ -126,8 +126,8 @@ void main() {
       const title = 'New Goal';
       final deadline = DateTime.now().add(const Duration(days: 30));
 
-      when(mockGoalRepository.getUserGoals(userId))
-          .thenAnswer((_) async => []);
+      when(mockGoalRepository.getGoalByUserAndTitle(userId, title))
+          .thenAnswer((_) async => null);
       when(mockGoalRepository.createGoal(
         userId: anyNamed('userId'),
         title: anyNamed('title'),
@@ -150,7 +150,7 @@ void main() {
 
       // Assert
       expect(result.title, title);
-      verify(mockGoalRepository.getUserGoals(userId)).called(1);
+      verify(mockGoalRepository.getGoalByUserAndTitle(userId, title)).called(1);
       verify(mockGoalRepository.createGoal(
         userId: anyNamed('userId'),
         title: anyNamed('title'),
@@ -239,8 +239,8 @@ void main() {
       const title = 'Duplicate Goal';
       final existingGoal = createTestGoal(title: title);
 
-      when(mockGoalRepository.getUserGoals(userId))
-          .thenAnswer((_) async => [existingGoal]);
+      when(mockGoalRepository.getGoalByUserAndTitle(userId, title))
+          .thenAnswer((_) async => existingGoal);
 
       // Act & Assert
       expect(
@@ -261,8 +261,8 @@ void main() {
         deletedAt: DateTime.now(),
       );
 
-      when(mockGoalRepository.getUserGoals(userId))
-          .thenAnswer((_) async => [deletedGoal]);
+      when(mockGoalRepository.getGoalByUserAndTitle(userId, title))
+          .thenAnswer((_) async => null);
       when(mockGoalRepository.createGoal(
         userId: anyNamed('userId'),
         title: anyNamed('title'),
@@ -289,8 +289,8 @@ void main() {
       const title = 'Tagged Goal';
       const tags = ['health', 'fitness', 'personal'];
 
-      when(mockGoalRepository.getUserGoals(userId))
-          .thenAnswer((_) async => []);
+      when(mockGoalRepository.getGoalByUserAndTitle(userId, title))
+          .thenAnswer((_) async => null);
       when(mockGoalRepository.createGoal(
         userId: anyNamed('userId'),
         title: anyNamed('title'),

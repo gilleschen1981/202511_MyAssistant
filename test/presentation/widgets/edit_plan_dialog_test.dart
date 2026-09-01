@@ -68,6 +68,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Open the dropdown
+      await tester.ensureVisible(find.byType(DropdownButtonFormField<RepeatType>));
       await tester.tap(find.byType(DropdownButtonFormField<RepeatType>));
       await tester.pumpAndSettle();
 
@@ -84,6 +85,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Open the dropdown
+      await tester.ensureVisible(find.byType(DropdownButtonFormField<RepeatType>));
       await tester.tap(find.byType(DropdownButtonFormField<RepeatType>));
       await tester.pumpAndSettle();
 
@@ -102,12 +104,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // Select daysOfWeek type
+      await tester.ensureVisible(find.byType(DropdownButtonFormField<RepeatType>));
       await tester.tap(find.byType(DropdownButtonFormField<RepeatType>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('选择星期').last);
       await tester.pumpAndSettle();
 
       // Tap Monday (一)
+      await tester.ensureVisible(find.text('一'));
       await tester.tap(find.text('一'));
       await tester.pumpAndSettle();
 
@@ -169,6 +173,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Select daysOfWeek type
+      await tester.ensureVisible(find.byType(DropdownButtonFormField<RepeatType>));
       await tester.tap(find.byType(DropdownButtonFormField<RepeatType>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('选择星期').last);
@@ -178,8 +183,8 @@ void main() {
       await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
 
-      // Check for error message
-      expect(find.text('请至少选择一天'), findsOneWidget);
+      // Check for error message (inline validation text + SnackBar)
+      expect(find.text('请至少选择一天'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('should validate custom days input', (WidgetTester tester) async {
@@ -187,12 +192,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // Select custom type
+      await tester.ensureVisible(find.byType(DropdownButtonFormField<RepeatType>));
       await tester.tap(find.byType(DropdownButtonFormField<RepeatType>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('自定义').last);
       await tester.pumpAndSettle();
 
       // Enter invalid value (0)
+      await tester.ensureVisible(find.widgetWithText(TextFormField, '自定义间隔天数'));
       await tester.enterText(find.widgetWithText(TextFormField, '自定义间隔天数'), '0');
       await tester.pumpAndSettle();
 
@@ -221,6 +228,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Change repeatType to daily
+      await tester.ensureVisible(find.byType(DropdownButtonFormField<RepeatType>));
       await tester.tap(find.byType(DropdownButtonFormField<RepeatType>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('每日').last);
@@ -265,12 +273,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // Select daysOfWeek type
+      await tester.ensureVisible(find.byType(DropdownButtonFormField<RepeatType>));
       await tester.tap(find.byType(DropdownButtonFormField<RepeatType>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('选择星期').last);
       await tester.pumpAndSettle();
 
       // Select Monday, Wednesday, Friday
+      await tester.ensureVisible(find.text('一'));
       await tester.tap(find.text('一'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('三'));

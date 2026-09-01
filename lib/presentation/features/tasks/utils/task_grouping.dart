@@ -1,6 +1,6 @@
 import 'package:myassistant/data/models/task_model.dart';
 
-/// Task grouping utility based on deadline (windowEndTime)
+/// Task grouping utility
 /// Groups tasks by: Today, Tomorrow, This Week, This Month, Later
 class TaskGrouping {
   /// Group tasks by deadline
@@ -25,9 +25,14 @@ class TaskGrouping {
         task.windowEndTime.month,
         task.windowEndTime.day,
       );
+      final windowStart = DateTime(
+        task.windowStartTime.year,
+        task.windowStartTime.month,
+        task.windowStartTime.day,
+      );
 
-      if (deadline.isBefore(tomorrow) && deadline.isAtSameMomentAs(today) || deadline.isAfter(today) && deadline.isBefore(tomorrow)) {
-        // Today: deadline is today
+      if (!windowStart.isAfter(today) && !deadline.isBefore(today)) {
+        // Today: task's execution window spans today
         groups['today']!.add(task);
       } else if (deadline.isAtSameMomentAs(tomorrow)) {
         // Tomorrow: deadline is tomorrow

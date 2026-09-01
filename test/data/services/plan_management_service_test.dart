@@ -118,8 +118,8 @@ void main() {
 
       when(mockGoalRepository.getGoalById(goalId))
           .thenAnswer((_) async => goal);
-      when(mockPlanRepository.getActivePlans(userId))
-          .thenAnswer((_) async => []);
+      when(mockPlanRepository.getPlanByUserAndName(userId, name))
+          .thenAnswer((_) async => null);
       when(mockPlanRepository.createPlan(
         userId: anyNamed('userId'),
         goalId: anyNamed('goalId'),
@@ -216,8 +216,8 @@ void main() {
 
       when(mockGoalRepository.getGoalById(goalId))
           .thenAnswer((_) async => goal);
-      when(mockPlanRepository.getActivePlans(userId))
-          .thenAnswer((_) async => [existingPlan]);
+      when(mockPlanRepository.getPlanByUserAndName(userId, name))
+          .thenAnswer((_) async => existingPlan);
 
       // Act & Assert
       expect(
@@ -242,8 +242,8 @@ void main() {
 
       when(mockGoalRepository.getGoalById(goalId))
           .thenAnswer((_) async => goal);
-      when(mockPlanRepository.getActivePlans(userId))
-          .thenAnswer((_) async => []);
+      when(mockPlanRepository.getPlanByUserAndName(userId, ''))
+          .thenAnswer((_) async => null);
 
       // Act & Assert
       expect(
@@ -269,8 +269,8 @@ void main() {
 
       when(mockGoalRepository.getGoalById(goalId))
           .thenAnswer((_) async => goal);
-      when(mockPlanRepository.getActivePlans(userId))
-          .thenAnswer((_) async => []);
+      when(mockPlanRepository.getPlanByUserAndName(userId, longName))
+          .thenAnswer((_) async => null);
 
       // Act & Assert
       expect(
@@ -297,8 +297,8 @@ void main() {
 
       when(mockGoalRepository.getGoalById(goalId))
           .thenAnswer((_) async => goal);
-      when(mockPlanRepository.getActivePlans(userId))
-          .thenAnswer((_) async => []);
+      when(mockPlanRepository.getPlanByUserAndName(userId, 'Test Plan'))
+          .thenAnswer((_) async => null);
 
       // Act & Assert
       expect(
@@ -323,8 +323,8 @@ void main() {
 
       when(mockGoalRepository.getGoalById(goalId))
           .thenAnswer((_) async => goal);
-      when(mockPlanRepository.getActivePlans(userId))
-          .thenAnswer((_) async => []);
+      when(mockPlanRepository.getPlanByUserAndName(userId, 'Test Plan'))
+          .thenAnswer((_) async => null);
 
       // Act & Assert
       expect(
@@ -349,8 +349,8 @@ void main() {
 
       when(mockGoalRepository.getGoalById(goalId))
           .thenAnswer((_) async => goal);
-      when(mockPlanRepository.getActivePlans(userId))
-          .thenAnswer((_) async => []);
+      when(mockPlanRepository.getPlanByUserAndName(userId, 'Test Plan'))
+          .thenAnswer((_) async => null);
 
       // Act & Assert
       expect(
@@ -377,8 +377,8 @@ void main() {
 
       when(mockGoalRepository.getGoalById(goalId))
           .thenAnswer((_) async => goal);
-      when(mockPlanRepository.getActivePlans(userId))
-          .thenAnswer((_) async => []);
+      when(mockPlanRepository.getPlanByUserAndName(userId, 'Test Plan'))
+          .thenAnswer((_) async => null);
 
       // Act & Assert
       expect(
@@ -414,8 +414,8 @@ void main() {
 
       when(mockGoalRepository.getGoalById(goalId))
           .thenAnswer((_) async => goal);
-      when(mockPlanRepository.getActivePlans(userId))
-          .thenAnswer((_) async => []);
+      when(mockPlanRepository.getPlanByUserAndName(userId, name))
+          .thenAnswer((_) async => null);
       when(mockPlanRepository.createPlan(
         userId: anyNamed('userId'),
         goalId: anyNamed('goalId'),
@@ -941,8 +941,8 @@ void main() {
           .thenAnswer((_) async => originalPlan);
       when(mockGoalRepository.getGoalById(newGoalId))
           .thenAnswer((_) async => goal);
-      when(mockPlanRepository.getActivePlans(originalPlan.userId))
-          .thenAnswer((_) async => []);
+      when(mockPlanRepository.getPlanByUserAndName(originalPlan.userId, '${originalPlan.name} (Copy)'))
+          .thenAnswer((_) async => null);
       when(mockPlanRepository.createPlan(
         userId: anyNamed('userId'),
         goalId: anyNamed('goalId'),

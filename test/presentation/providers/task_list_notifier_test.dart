@@ -102,7 +102,7 @@ void main() {
         status: TaskStatus.active,
       );
 
-      when(mockTaskRepository.getTasksInCurrentWindow('test-user-123'))
+      when(mockTaskRepository.getFutureTasks('test-user-123'))
           .thenAnswer((_) async => [taskInWindow]);
       when(mockTaskRepository.getTodayTasks('test-user-123'))
           .thenAnswer((_) async => [taskInWindow]);
@@ -133,7 +133,7 @@ void main() {
       );
 
       // getTasksInCurrentWindow should not return expired tasks
-      when(mockTaskRepository.getTasksInCurrentWindow('test-user-123'))
+      when(mockTaskRepository.getFutureTasks('test-user-123'))
           .thenAnswer((_) async => []);
       when(mockTaskRepository.getTodayTasks('test-user-123'))
           .thenAnswer((_) async => [expiredTask]);
@@ -163,7 +163,7 @@ void main() {
       );
 
       // getTasksInCurrentWindow should not return future tasks
-      when(mockTaskRepository.getTasksInCurrentWindow('test-user-123'))
+      when(mockTaskRepository.getFutureTasks('test-user-123'))
           .thenAnswer((_) async => []);
       when(mockTaskRepository.getTodayTasks('test-user-123'))
           .thenAnswer((_) async => [futureTask]);
@@ -192,7 +192,7 @@ void main() {
         status: TaskStatus.active,
       );
 
-      when(mockTaskRepository.getTasksInCurrentWindow('test-user-123'))
+      when(mockTaskRepository.getFutureTasks('test-user-123'))
           .thenAnswer((_) async => [multiDayTask]);
       when(mockTaskRepository.getTodayTasks('test-user-123'))
           .thenAnswer((_) async => [multiDayTask]);
@@ -229,7 +229,7 @@ void main() {
         status: TaskStatus.active,
       );
 
-      when(mockTaskRepository.getTasksInCurrentWindow('test-user-123'))
+      when(mockTaskRepository.getFutureTasks('test-user-123'))
           .thenAnswer((_) async => [windowTask]); // Only current window
       when(mockTaskRepository.getTodayTasks('test-user-123'))
           .thenAnswer((_) async => [windowTask, todayFutureTask]); // Both today
@@ -268,7 +268,7 @@ void main() {
         status: TaskStatus.completed,
       );
 
-      when(mockTaskRepository.getTasksInCurrentWindow('test-user-123'))
+      when(mockTaskRepository.getFutureTasks('test-user-123'))
           .thenAnswer((_) async => [activeTask, completedTask]);
       when(mockTaskRepository.getTodayTasks('test-user-123'))
           .thenAnswer((_) async => [activeTask, completedTask]);
@@ -316,7 +316,7 @@ void main() {
         status: TaskStatus.active,
       );
 
-      when(mockTaskRepository.getTasksInCurrentWindow('test-user-123'))
+      when(mockTaskRepository.getFutureTasks('test-user-123'))
           .thenAnswer((_) async => [windowActiveTask, windowCompletedTask]);
       when(mockTaskRepository.getTodayTasks('test-user-123'))
           .thenAnswer((_) async => [windowActiveTask, windowCompletedTask, todayOnlyTask]);
@@ -353,7 +353,7 @@ void main() {
         status: TaskStatus.completed,
       );
 
-      when(mockTaskRepository.getTasksInCurrentWindow('test-user-123'))
+      when(mockTaskRepository.getFutureTasks('test-user-123'))
           .thenAnswer((_) async => [activeTask, completedTask]);
       when(mockTaskRepository.getTodayTasks('test-user-123'))
           .thenAnswer((_) async => [activeTask, completedTask]);
@@ -379,7 +379,7 @@ void main() {
       // won't return it anyway (window expired)
 
       // Current window is empty (next week's task not generated yet)
-      when(mockTaskRepository.getTasksInCurrentWindow('test-user-123'))
+      when(mockTaskRepository.getFutureTasks('test-user-123'))
           .thenAnswer((_) async => []);
       when(mockTaskRepository.getTodayTasks('test-user-123'))
           .thenAnswer((_) async => []);
@@ -408,7 +408,7 @@ void main() {
         status: TaskStatus.active,
       );
 
-      when(mockTaskRepository.getTasksInCurrentWindow('test-user-123'))
+      when(mockTaskRepository.getFutureTasks('test-user-123'))
           .thenAnswer((_) async => [monthlyTask]);
       when(mockTaskRepository.getTodayTasks('test-user-123'))
           .thenAnswer((_) async => [monthlyTask]);
@@ -455,7 +455,7 @@ void main() {
         status: TaskStatus.active,
       );
 
-      when(mockTaskRepository.getTasksInCurrentWindow('test-user-123'))
+      when(mockTaskRepository.getFutureTasks('test-user-123'))
           .thenAnswer((_) async => [task1, task2, task3]);
       when(mockTaskRepository.getTodayTasks('test-user-123'))
           .thenAnswer((_) async => [task1, task2, task3]);
@@ -476,7 +476,7 @@ void main() {
   group('TaskListNotifier - Edge Cases', () {
     test('should handle empty task lists', () async {
       // Arrange
-      when(mockTaskRepository.getTasksInCurrentWindow('test-user-123'))
+      when(mockTaskRepository.getFutureTasks('test-user-123'))
           .thenAnswer((_) async => []);
       when(mockTaskRepository.getTodayTasks('test-user-123'))
           .thenAnswer((_) async => []);
@@ -506,7 +506,7 @@ void main() {
         status: TaskStatus.active,
       );
 
-      when(mockTaskRepository.getTasksInCurrentWindow('test-user-123'))
+      when(mockTaskRepository.getFutureTasks('test-user-123'))
           .thenAnswer((_) async => [taskEndingNow]); // DAO should include it (<=)
       when(mockTaskRepository.getTodayTasks('test-user-123'))
           .thenAnswer((_) async => [taskEndingNow]);
