@@ -1,0 +1,310 @@
+{
+  "template_name": "All Goals and Plans",
+  "description": "Exported from MyAssistant app",
+  "version": "1.0",
+  "exported_at": "2026-09-01T11:11:09Z",
+  "goals": [
+    {
+      "title": "养生",
+      "description": "养成健康的固定习惯",
+      "priority": "high",
+      "tags": [
+        "养生"
+      ],
+      "status": "active",
+      "successCriteria": ""
+    },
+    {
+      "title": "控制体重",
+      "description": "早起时73KG以下",
+      "priority": "high",
+      "tags": [
+        "减肥"
+      ],
+      "status": "active",
+      "successCriteria": ""
+    },
+    {
+      "title": "自我管理",
+      "description": "",
+      "priority": "high",
+      "tags": [],
+      "status": "active",
+      "successCriteria": ""
+    },
+    {
+      "title": "小功法",
+      "description": "",
+      "priority": "medium",
+      "tags": [],
+      "status": "active",
+      "successCriteria": ""
+    }
+  ],
+  "plans": [
+    {
+      "goal_title": "养生",
+      "name": "呼吸冥想",
+      "description": "腹式呼吸+提肛，睡前执行",
+      "status": "active",
+      "repeatRule": {
+        "type": "daily",
+        "customDays": null,
+        "selectedDaysOfWeek": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": null,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "养生",
+      "name": "晨间活动",
+      "description": "胸椎康复四件套+颈椎等长抗阻+拉伸拍打",
+      "status": "active",
+      "repeatRule": {
+        "type": "daily",
+        "customDays": null,
+        "selectedDaysOfWeek": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": null,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "养生",
+      "name": "开胯",
+      "description": "站立主动转胯",
+      "status": "active",
+      "repeatRule": {
+        "type": "daily",
+        "customDays": null,
+        "selectedDaysOfWeek": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": null,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "养生",
+      "name": "揉腹",
+      "description": "起前或睡前，仰卧，双手顺时针揉搓腹部",
+      "status": "active",
+      "repeatRule": {
+        "type": "daily",
+        "customDays": null,
+        "selectedDaysOfWeek": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": null,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "养生",
+      "name": "早按摩",
+      "description": "梳头100下，脸部按摩，扣齿",
+      "status": "active",
+      "repeatRule": {
+        "type": "daily",
+        "customDays": null,
+        "selectedDaysOfWeek": null
+      },
+      "taskConfig": {
+        "durationMinutes": 5,
+        "repeatCount": null,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "养生",
+      "name": "16:8饮食",
+      "description": "记录每日空腹时间",
+      "status": "active",
+      "repeatRule": {
+        "type": "daily",
+        "customDays": null,
+        "selectedDaysOfWeek": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": null,
+        "evaluationOptions": [
+          "12",
+          "13",
+          "14",
+          "15",
+          "16"
+        ]
+      }
+    },
+    {
+      "goal_title": "养生",
+      "name": "补水",
+      "description": "醒后10小时内保证每小时200ml",
+      "status": "active",
+      "repeatRule": {
+        "type": "daily",
+        "customDays": null,
+        "selectedDaysOfWeek": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": null,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "控制体重",
+      "name": "肌肉训练",
+      "description": "至少俯卧撑10个+深蹲20个，或等量力量训练",
+      "status": "active",
+      "repeatRule": {
+        "type": "weekly",
+        "customDays": null,
+        "selectedDaysOfWeek": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": 2,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "控制体重",
+      "name": "运动",
+      "description": "20分钟以上有氧",
+      "status": "active",
+      "repeatRule": {
+        "type": "weekly",
+        "customDays": null,
+        "selectedDaysOfWeek": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": 3,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "自我管理",
+      "name": "学习",
+      "description": "每天一次工作以外的自我提升学习",
+      "status": "active",
+      "repeatRule": {
+        "type": "daily",
+        "customDays": null,
+        "selectedDaysOfWeek": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": null,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "自我管理",
+      "name": "每周总结",
+      "description": "",
+      "status": "active",
+      "repeatRule": {
+        "type": "daysOfWeek",
+        "customDays": null,
+        "selectedDaysOfWeek": [
+          1
+        ]
+      },
+      "taskConfig": {
+        "durationMinutes": 5,
+        "repeatCount": null,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "小功法",
+      "name": "垂吊",
+      "description": "",
+      "status": "active",
+      "repeatRule": {
+        "type": "daily",
+        "customDays": null,
+        "selectedDaysOfWeek": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": null,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "小功法",
+      "name": "捏带脉",
+      "description": "",
+      "status": "active",
+      "repeatRule": {
+        "type": "daily",
+        "customDays": null,
+        "selectedDaysOfWeek": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": null,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "小功法",
+      "name": "站桩",
+      "description": "上班时站着工作顺便锻炼",
+      "status": "active",
+      "repeatRule": {
+        "type": "weekly",
+        "customDays": null,
+        "selectedDaysOfWeek": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": 4,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "小功法",
+      "name": "蹲墙",
+      "description": "",
+      "status": "active",
+      "repeatRule": {
+        "type": "custom",
+        "customDays": 2,
+        "selectedDaysOfWeek": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": null,
+        "evaluationOptions": null
+      }
+    },
+    {
+      "goal_title": "小功法",
+      "name": "马步",
+      "description": "",
+      "status": "active",
+      "repeatRule": {
+        "type": "custom",
+        "customDays": 2,
+        "selectedDaysOfWeek": null
+      },
+      "taskConfig": {
+        "durationMinutes": null,
+        "repeatCount": null,
+        "evaluationOptions": null
+      }
+    }
+  ]
+}

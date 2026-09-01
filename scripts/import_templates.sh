@@ -222,7 +222,7 @@ WHERE id='$EXISTING_GOAL_ID';
 EOF
 
         echo -e "${BLUE}🔄${NC} Updated goal: $TITLE (id: ${EXISTING_GOAL_ID:0:8}...)"
-        ((UPDATED_GOALS++))
+        UPDATED_GOALS=$((UPDATED_GOALS + 1))
     else
         # Create new goal
         NEW_GOAL_ID=$(generate_uuid)
@@ -234,10 +234,10 @@ VALUES ('$NEW_GOAL_ID', '$USER_ID', '$TITLE_ESCAPED', '$DESCRIPTION', '$PRIORITY
 EOF
 
         echo -e "${GREEN}✓${NC} Imported goal: $TITLE (id: ${NEW_GOAL_ID:0:8}...)"
-        ((IMPORTED_GOALS++))
+        IMPORTED_GOALS=$((IMPORTED_GOALS + 1))
     fi
 
-    ((GOAL_INDEX++))
+    GOAL_INDEX=$((GOAL_INDEX + 1))
 done < <(jq -c '.goals[]' "$TEMPLATE_FILE")
 
 # Parse and import plans
@@ -318,7 +318,7 @@ WHERE id='$EXISTING_PLAN_ID';
 EOF
 
         echo -e "${BLUE}🔄${NC} Updated plan: $NAME (id: ${EXISTING_PLAN_ID:0:8}...)"
-        ((UPDATED_PLANS++))
+        UPDATED_PLANS=$((UPDATED_PLANS + 1))
     else
         # Create new plan
         NEW_PLAN_ID=$(generate_uuid)
@@ -329,10 +329,10 @@ VALUES ('$NEW_PLAN_ID', '$USER_ID', '$GOAL_ID', '$NAME_ESCAPED', '$DESCRIPTION',
 EOF
 
         echo -e "${GREEN}✓${NC} Imported plan: $NAME (id: ${NEW_PLAN_ID:0:8}...)"
-        ((IMPORTED_PLANS++))
+        IMPORTED_PLANS=$((IMPORTED_PLANS + 1))
     fi
 
-    ((PLAN_INDEX++))
+    PLAN_INDEX=$((PLAN_INDEX + 1))
 done < <(jq -c '.plans[]' "$TEMPLATE_FILE")
 
 echo ""
