@@ -35,18 +35,30 @@ trap cleanup EXIT
 echo -e "${BLUE}📥 Goal & Plan Template Importer${NC}"
 echo ""
 
-# Check arguments
-if [ $# -lt 1 ]; then
+# Parse arguments
+OVERWRITE=false
+TEMPLATE_FILE=""
+
+for arg in "$@"; do
+    case "$arg" in
+        --overwrite) OVERWRITE=true ;;
+        *) TEMPLATE_FILE="$arg" ;;
+    esac
+done
+
+if [ -z "$TEMPLATE_FILE" ]; then
     echo -e "${RED}❌ Error: No template file specified${NC}"
     echo ""
-    echo "Usage: $0 <template_file.json>"
+    echo "Usage: $0 [--overwrite] <template_file.json>"
+    echo ""
+    echo "Options:"
+    echo "  --overwrite  Delete all existing goals, plans, tasks and executions before import"
     echo ""
     echo "Example:"
     echo "  $0 templates/fitness_plan.json"
+    echo "  $0 --overwrite templates/fitness_plan.json"
     exit 1
 fi
-
-TEMPLATE_FILE="$1"
 
 # Check if template file exists
 if [ ! -f "$TEMPLATE_FILE" ]; then
@@ -151,6 +163,26 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 echo ""
+
+# Overwrite mode: delete all existing goals, plans, tasks and executions
+if [ "$OVERWRITE" = true ]; then
+    echo -e "${YELLOW}🗑️  Overwrite mode: clearing existing data...${NC}"
+
+    EXISTING_TASKS=$(sqlite3 "$TEMP_DB" "SELECT COUNT(*) FROM tasks WHERE user_id='$USER_ID';")
+    EXISTING_PLANS=$(sqlite3 "$TEMP_DB" "SELECT COUNT(*) FROM plans WHERE user_id='$USER_ID';")
+    EXISTING_GOALS=$(sqlite3 "$TEMP_DB" "SELECT COUNT(*) FROM goals WHERE user_id='$USER_ID';")
+
+    sqlite3 "$TEMP_DB" <<EOF
+DELETE FROM task_history WHERE task_id IN (SELECT id FROM tasks WHERE user_id='$USER_ID');
+DELETE FROM tasks WHERE user_id='$USER_ID';
+DELETE FROM plans WHERE user_id='$USER_ID';
+DELETE FROM goals WHERE user_id='$USER_ID';
+EOF
+
+    echo -e "${GREEN}✓${NC} Deleted: $EXISTING_GOALS goals, $EXISTING_PLANS plans, $EXISTING_TASKS tasks"
+    echo ""
+fi
+
 echo -e "${BLUE}📥 Importing templates...${NC}"
 
 # Function to generate UUID
