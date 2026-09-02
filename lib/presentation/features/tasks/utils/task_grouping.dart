@@ -25,26 +25,16 @@ class TaskGrouping {
         task.windowEndTime.month,
         task.windowEndTime.day,
       );
-      final windowStart = DateTime(
-        task.windowStartTime.year,
-        task.windowStartTime.month,
-        task.windowStartTime.day,
-      );
 
-      if (!windowStart.isAfter(today) && !deadline.isBefore(today)) {
-        // Today: task's execution window spans today
+      if (deadline.isAtSameMomentAs(today)) {
         groups['today']!.add(task);
       } else if (deadline.isAtSameMomentAs(tomorrow)) {
-        // Tomorrow: deadline is tomorrow
         groups['tomorrow']!.add(task);
-      } else if (deadline.isAfter(tomorrow) && deadline.isBefore(endOfWeek.add(const Duration(days: 1)))) {
-        // This week: deadline is within this week (excluding today and tomorrow)
+      } else if (deadline.isBefore(endOfWeek.add(const Duration(days: 1)))) {
         groups['thisWeek']!.add(task);
-      } else if (deadline.isAfter(endOfWeek) && deadline.isBefore(endOfMonth.add(const Duration(days: 1)))) {
-        // This month: deadline is within this month (excluding this week)
+      } else if (deadline.isBefore(endOfMonth.add(const Duration(days: 1)))) {
         groups['thisMonth']!.add(task);
       } else {
-        // Later: deadline is after this month
         groups['later']!.add(task);
       }
     }

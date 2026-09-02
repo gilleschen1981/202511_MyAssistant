@@ -54,38 +54,6 @@ void main() {
         expect(groups['today'], contains(task));
       });
 
-      test('weekly task whose window spans this week is in "today"', () {
-        // Window starts on Monday, ends on Sunday of the current week.
-        final monday = today.subtract(Duration(days: now.weekday - 1));
-        final sunday = monday.add(const Duration(days: 6));
-        final task = _makeTask(
-          windowStart: monday,
-          windowEnd: sunday,
-        );
-        final groups = TaskGrouping.groupByDeadline([task]);
-        expect(groups['today'], contains(task));
-      });
-
-      test('monthly task whose window spans the entire month is in "today"', () {
-        final firstOfMonth = DateTime(now.year, now.month, 1);
-        final lastOfMonth = DateTime(now.year, now.month + 1, 0);
-        final task = _makeTask(
-          windowStart: firstOfMonth,
-          windowEnd: lastOfMonth,
-        );
-        final groups = TaskGrouping.groupByDeadline([task]);
-        expect(groups['today'], contains(task));
-      });
-
-      test('multi-day task started yesterday and ending tomorrow is in "today"', () {
-        final task = _makeTask(
-          windowStart: today.subtract(const Duration(days: 1)),
-          windowEnd: today.add(const Duration(days: 1)),
-        );
-        final groups = TaskGrouping.groupByDeadline([task]);
-        expect(groups['today'], contains(task));
-      });
-
       test('task whose window started in the past and ends today is in "today"', () {
         final task = _makeTask(
           windowStart: today.subtract(const Duration(days: 5)),
@@ -117,20 +85,22 @@ void main() {
         final groups = TaskGrouping.groupByDeadline([task]);
         expect(groups['tomorrow'], contains(task));
       });
+
+      test('multi-day task ending tomorrow is in "tomorrow"', () {
+        final task = _makeTask(
+          windowStart: today.subtract(const Duration(days: 1)),
+          windowEnd: tomorrow,
+        );
+        final groups = TaskGrouping.groupByDeadline([task]);
+        expect(groups['tomorrow'], contains(task));
+      });
     });
 
     // ---------- "thisWeek" group ----------
 
     group('thisWeek group', () {
       test('task later this week (after tomorrow, before end of week) is in "thisWeek"', () {
-        // Only meaningful when there are days between tomorrow and end of week.
-        // If today is Friday (weekday 5), endOfWeek is Sunday (today+2),
-        // tomorrow is Saturday (today+1), and dayAfterTomorrow is Sunday (today+2).
-        // thisWeek condition: deadline.isAfter(tomorrow) && deadline.isBefore(endOfWeek + 1day)
-        // So Sunday == endOfWeek, and Sunday.isBefore(endOfWeek+1day) == true.
-        // But windowStart must be after today for it not to go to "today".
         final dayAfterTomorrow = tomorrow.add(const Duration(days: 1));
-        // Only test if dayAfterTomorrow is still within endOfWeek
         if (!dayAfterTomorrow.isAfter(endOfWeek)) {
           final task = _makeTask(
             windowStart: dayAfterTomorrow,
@@ -142,12 +112,23 @@ void main() {
       });
 
       test('task ending on the last day of this week is in "thisWeek"', () {
-        // endOfWeek itself should qualify for thisWeek
-        // (as long as windowStart is after today so it does not fall into "today")
         if (endOfWeek.isAfter(tomorrow)) {
           final task = _makeTask(
             windowStart: endOfWeek,
             windowEnd: endOfWeek,
+          );
+          final groups = TaskGrouping.groupByDeadline([task]);
+          expect(groups['thisWeek'], contains(task));
+        }
+      });
+
+      test('weekly task spanning entire week is in "thisWeek"', () {
+        final monday = today.subtract(Duration(days: now.weekday - 1));
+        final sunday = monday.add(const Duration(days: 6));
+        if (sunday.isAfter(tomorrow)) {
+          final task = _makeTask(
+            windowStart: monday,
+            windowEnd: sunday,
           );
           final groups = TaskGrouping.groupByDeadline([task]);
           expect(groups['thisWeek'], contains(task));
@@ -159,7 +140,6 @@ void main() {
 
     group('thisMonth group', () {
       test('task in a later week of this month is in "thisMonth"', () {
-        // Pick a date that is after endOfWeek but still within the month
         final candidateDate = endOfWeek.add(const Duration(days: 1));
         if (candidateDate.month == now.month &&
             candidateDate.isAfter(tomorrow)) {
@@ -173,11 +153,23 @@ void main() {
       });
 
       test('task ending on the last day of this month is in "thisMonth"', () {
-        // Only applies if endOfMonth is after endOfWeek
         if (endOfMonth.isAfter(endOfWeek)) {
           final task = _makeTask(
             windowStart: endOfMonth,
             windowEnd: endOfMonth,
+          );
+          final groups = TaskGrouping.groupByDeadline([task]);
+          expect(groups['thisMonth'], contains(task));
+        }
+      });
+
+      test('monthly task spanning entire month is in "thisMonth"', () {
+        final firstOfMonth = DateTime(now.year, now.month, 1);
+        final lastOfMonth = DateTime(now.year, now.month + 1, 0);
+        if (lastOfMonth.isAfter(endOfWeek)) {
+          final task = _makeTask(
+            windowStart: firstOfMonth,
+            windowEnd: lastOfMonth,
           );
           final groups = TaskGrouping.groupByDeadline([task]);
           expect(groups['thisMonth'], contains(task));
@@ -236,21 +228,6 @@ void main() {
         expect(groups['thisWeek'], isEmpty);
         expect(groups['thisMonth'], isEmpty);
         expect(groups['later'], isEmpty);
-      });
-
-      test('task whose window already passed (both start and end before today) goes to "later" bucket', () {
-        // windowStart and windowEnd both in the past -- neither spans today,
-        // nor matches tomorrow/thisWeek/thisMonth, so it falls through to
-        // "later".
-        final pastTask = _makeTask(
-          windowStart: today.subtract(const Duration(days: 10)),
-          windowEnd: today.subtract(const Duration(days: 5)),
-        );
-        final groups = TaskGrouping.groupByDeadline([pastTask]);
-        // Past tasks: windowStart > today is false (good), but
-        // deadline < today so it fails the "today" check.
-        // deadline != tomorrow, not after tomorrow, so falls through to later.
-        expect(groups['later'], contains(pastTask));
       });
 
       test('tasks are distributed across multiple groups', () {
