@@ -44,6 +44,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Release signing
+android/key.properties
+android/app/release.jks
+
 # Database debugging files
 debug_db/
 *.db
