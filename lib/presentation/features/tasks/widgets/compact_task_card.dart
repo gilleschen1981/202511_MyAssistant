@@ -8,12 +8,14 @@ class CompactTaskCard extends StatelessWidget {
   final TaskModel task;
   final VoidCallback? onTap;
   final void Function(Offset)? onTapWithPosition;
+  final bool forceActiveStyle;
 
   const CompactTaskCard({
     super.key,
     required this.task,
     this.onTap,
     this.onTapWithPosition,
+    this.forceActiveStyle = false,
   });
 
   @override
@@ -21,24 +23,25 @@ class CompactTaskCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isCompleted = task.status == TaskStatus.completed;
     final isSkipped = task.status == TaskStatus.skipped;
+    final showAsActive = forceActiveStyle || (!isCompleted && !isSkipped);
 
     Color backgroundColor;
     Color? borderColor;
     TextDecoration? textDecoration;
 
     // Status-based styling (TaskView.md spec)
-    if (isCompleted) {
-      backgroundColor = const Color(0xFFE8F5E9); // Completed: light green
-      borderColor = null;
-      textDecoration = null;
-    } else if (isSkipped) {
-      backgroundColor = const Color(0xFFF5F5F5); // Skipped: gray
-      borderColor = null;
-      textDecoration = TextDecoration.lineThrough;
-    } else {
+    if (showAsActive) {
       backgroundColor = Colors.white; // Active: white + blue left border
       borderColor = const Color(0xFF2196F3);
       textDecoration = null;
+    } else if (isCompleted) {
+      backgroundColor = const Color(0xFFE8F5E9); // Completed: light green
+      borderColor = null;
+      textDecoration = null;
+    } else {
+      backgroundColor = const Color(0xFFF5F5F5); // Skipped: gray
+      borderColor = null;
+      textDecoration = TextDecoration.lineThrough;
     }
 
     return GestureDetector(
@@ -74,9 +77,9 @@ class CompactTaskCard extends StatelessWidget {
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 decoration: textDecoration,
-                color: isCompleted || isSkipped
-                    ? theme.colorScheme.onSurfaceVariant
-                    : theme.colorScheme.onSurface,
+                color: showAsActive
+                    ? theme.colorScheme.onSurface
+                    : theme.colorScheme.onSurfaceVariant,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

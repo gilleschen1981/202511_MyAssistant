@@ -14,8 +14,9 @@ class TaskQuickMenu {
   static void show(
     BuildContext context,
     TaskModel task,
-    Offset tapPosition,
-  ) {
+    Offset tapPosition, {
+    bool isMakeUpMode = false,
+  }) {
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
     final Size overlaySize = overlay.size;
@@ -72,7 +73,7 @@ class TaskQuickMenu {
         PopupMenuItem(
           enabled: false,
           padding: EdgeInsets.zero,
-          child: _QuickMenuContent(task: task),
+          child: _QuickMenuContent(task: task, isMakeUpMode: isMakeUpMode),
         ),
       ],
     );
@@ -82,11 +83,65 @@ class TaskQuickMenu {
 /// Content of the quick menu
 class _QuickMenuContent extends ConsumerWidget {
   final TaskModel task;
+  final bool isMakeUpMode;
 
-  const _QuickMenuContent({required this.task});
+  const _QuickMenuContent({required this.task, this.isMakeUpMode = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (isMakeUpMode) {
+      return _buildMakeUpMenu(context, ref);
+    }
+    return _buildNormalMenu(context, ref);
+  }
+
+  Widget _buildMakeUpMenu(BuildContext context, WidgetRef ref) {
+    final hasCounter = task.config.repeatCount != null;
+
+    return Container(
+      width: 80,
+      height: 56,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          _MenuButton(
+            icon: Icons.check,
+            label: '完成',
+            onTap: () async {
+              Navigator.pop(context);
+
+              if (hasCounter) {
+                await _handleMakeUpCounterTask(context, task, ref);
+              } else if (task.config.evaluationOptions != null &&
+                  task.config.evaluationOptions!.isNotEmpty) {
+                _showMakeUpEvaluationMenu(context, task, ref);
+              } else {
+                await ref.read(taskListNotifierProvider.notifier).makeUpCompleteTask(
+                      task: task,
+                      evaluationResult: null,
+                      executionNote: null,
+                    );
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('补签完成！'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNormalMenu(BuildContext context, WidgetRef ref) {
     // Status checks (see document/TechnicalDesign/BusinessLogic.md § 5.2)
     // Only active and completed tasks should show the quick menu
     final isActive = task.status == TaskStatus.active;
@@ -202,6 +257,77 @@ class _QuickMenuContent extends ConsumerWidget {
               onTap: () => _handleSkipTask(context, task, ref),
             ),
         ],
+      ),
+    );
+  }
+
+  /// Handle make-up counter task
+  Future<void> _handleMakeUpCounterTask(
+    BuildContext context,
+    TaskModel task,
+    WidgetRef ref,
+  ) async {
+    final willComplete = task.currentCount + 1 >= task.config.repeatCount!;
+
+    if (willComplete &&
+        task.config.evaluationOptions != null &&
+        task.config.evaluationOptions!.isNotEmpty) {
+      _showMakeUpEvaluationMenuForCounter(context, task, ref);
+    } else {
+      final updatedTask = await ref
+          .read(taskListNotifierProvider.notifier)
+          .makeUpIncrementCount(task);
+
+      if (context.mounted) {
+        if (updatedTask.status == TaskStatus.completed) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('补签完成！'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          final newCount = updatedTask.currentCount;
+          final target = task.config.repeatCount!;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('进度：$newCount/$target'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  /// Show make-up evaluation menu
+  void _showMakeUpEvaluationMenu(
+    BuildContext context,
+    TaskModel task,
+    WidgetRef ref,
+  ) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (context) => _MakeUpEvaluationMenu(
+        task: task,
+        isCounter: false,
+      ),
+    );
+  }
+
+  /// Show make-up evaluation menu for counter tasks (on final count)
+  void _showMakeUpEvaluationMenuForCounter(
+    BuildContext context,
+    TaskModel task,
+    WidgetRef ref,
+  ) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (context) => _MakeUpEvaluationMenu(
+        task: task,
+        isCounter: true,
       ),
     );
   }
@@ -502,6 +628,97 @@ class _EvaluationMenu extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('任务已完成！'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+}
+
+/// Make-up evaluation menu
+class _MakeUpEvaluationMenu extends ConsumerWidget {
+  final TaskModel task;
+  final bool isCounter;
+
+  const _MakeUpEvaluationMenu({
+    required this.task,
+    required this.isCounter,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final options = task.config.evaluationOptions ?? [];
+
+    final rows = <List<String>>[];
+    for (var i = 0; i < options.length; i += 2) {
+      rows.add(options.sublist(i, (i + 2 > options.length) ? options.length : i + 2));
+    }
+
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var j = 0; j < rows[i].length; j++) ...[
+                      if (j > 0) const SizedBox(width: 8),
+                      _EvaluationButton(
+                        label: rows[i][j],
+                        onTap: () => _handleSelected(context, ref, rows[i][j]),
+                      ),
+                    ],
+                  ],
+                ),
+                if (i < rows.length - 1) const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleSelected(
+    BuildContext context,
+    WidgetRef ref,
+    String rating,
+  ) async {
+    Navigator.pop(context);
+
+    if (isCounter) {
+      await ref.read(taskListNotifierProvider.notifier).makeUpIncrementCount(
+        task,
+        evaluationResult: rating,
+      );
+    } else {
+      await ref.read(taskListNotifierProvider.notifier).makeUpCompleteTask(
+            task: task,
+            evaluationResult: rating,
+            executionNote: null,
+          );
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('补签完成！'),
           backgroundColor: Colors.green,
         ),
       );

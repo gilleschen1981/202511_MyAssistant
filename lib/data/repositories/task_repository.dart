@@ -338,6 +338,76 @@ class TaskRepository implements ITaskRepository {
   }
 
   @override
+  Future<List<TaskModel>> getYesterdaySkippedTasks(String userId) async {
+    return await _taskDao.getYesterdaySkippedTasks(userId);
+  }
+
+  @override
+  Future<TaskModel> makeUpCompleteTask({
+    required String taskId,
+    String? evaluationResult,
+    String? executionNote,
+  }) async {
+    final task = await _taskDao.getTaskById(taskId);
+    if (task == null) {
+      throw Exception('Task not found');
+    }
+
+    if (task.status != TaskStatus.skipped) {
+      throw Exception('Only skipped tasks can be make-up completed');
+    }
+
+    if (task.config.evaluationOptions != null &&
+        task.config.evaluationOptions!.isNotEmpty &&
+        evaluationResult == null) {
+      throw Exception('Evaluation task requires evaluation result');
+    }
+
+    final result = await _taskDao.makeUpCompleteTask(
+      taskId: taskId,
+      evaluationResult: evaluationResult,
+      executionNote: executionNote,
+    );
+
+    if (result == null) {
+      throw Exception('Failed to make-up complete task');
+    }
+
+    return result;
+  }
+
+  @override
+  Future<TaskModel> makeUpUpdateProgress(String taskId, int currentCount) async {
+    final task = await _taskDao.getTaskById(taskId);
+    if (task == null) {
+      throw Exception('Task not found');
+    }
+
+    if (task.config.repeatCount == null) {
+      throw Exception('This is not a counter task');
+    }
+
+    if (task.status != TaskStatus.skipped) {
+      throw Exception('Only skipped tasks can be updated in make-up mode');
+    }
+
+    final result = await _taskDao.makeUpUpdateProgress(taskId, currentCount);
+    if (result == null) {
+      throw Exception('Failed to update make-up task progress');
+    }
+
+    if (currentCount >= task.config.repeatCount!) {
+      return await makeUpCompleteTask(
+        taskId: taskId,
+        evaluationResult: null,
+        executionNote: null,
+      );
+    }
+
+    return result;
+  }
+
+  @override
   Future<bool> deleteTask(String taskId) async {
     AppLogger.d('deleteTask called with taskId: $taskId', tag: 'TaskRepository');
     final result = await _taskDao.deleteTask(taskId);

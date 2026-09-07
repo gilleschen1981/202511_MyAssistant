@@ -478,6 +478,67 @@ class TaskExecutionService {
     );
   }
 
+  /// Make-up complete a skipped task (skipped → completed)
+  Future<TaskModel> makeUpCompleteTask({
+    required TaskModel task,
+    String? evaluationResult,
+    String? executionNote,
+  }) async {
+    if (task.status != TaskStatus.skipped) {
+      throw const BusinessException('Only skipped tasks can be make-up completed');
+    }
+
+    _validateMakeUpCompletion(task, evaluationResult);
+
+    return await _taskRepository.makeUpCompleteTask(
+      taskId: task.id,
+      evaluationResult: evaluationResult,
+      executionNote: executionNote,
+    );
+  }
+
+  /// Make-up increment count for a skipped counter task
+  Future<TaskModel> makeUpIncrementCount(
+    TaskModel task, {
+    String? evaluationResult,
+  }) async {
+    if (task.config.repeatCount == null) {
+      throw const BusinessException('This is not a counter task');
+    }
+
+    if (task.status != TaskStatus.skipped) {
+      throw const BusinessException('Only skipped tasks can be updated in make-up mode');
+    }
+
+    final newCount = task.currentCount + 1;
+
+    if (newCount >= task.config.repeatCount! &&
+        task.config.evaluationOptions != null &&
+        task.config.evaluationOptions!.isNotEmpty &&
+        evaluationResult == null) {
+      throw const BusinessException('Evaluation required on final count');
+    }
+
+    final updatedTask = await _taskRepository.makeUpUpdateProgress(
+      task.id, newCount);
+
+    return updatedTask;
+  }
+
+  void _validateMakeUpCompletion(TaskModel task, String? evaluationResult) {
+    if (task.config.evaluationOptions != null &&
+        task.config.evaluationOptions!.isNotEmpty &&
+        evaluationResult == null) {
+      throw const ValidationException('Evaluation task requires an evaluation result');
+    }
+
+    if (evaluationResult != null &&
+        task.config.evaluationOptions != null &&
+        !task.config.evaluationOptions!.contains(evaluationResult)) {
+      throw const ValidationException('Invalid evaluation option');
+    }
+  }
+
   /// Get all active timer sessions
   Map<String, TimerSession> getActiveSessions() {
     return Map.unmodifiable(_activeSessions);

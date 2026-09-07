@@ -1323,6 +1323,79 @@ class TaskModel {
 3. 重新执行的任务保持原执行窗口（`windowStartTime`和`windowEndTime`）
 4. 窗口验证在UI层和Service层都需要进行
 
+### 5.7 昨日补签逻辑（MakeUpCheckIn）
+
+#### 5.7.1 核心职责
+管理"昨日补签"功能的业务逻辑，允许用户对昨天被跳过的任务进行补签完成操作。
+
+#### 5.7.2 补签范围定义
+
+补签目标任务的查询条件：
+- `status = 'skipped'`
+- `skipped_at` 在昨天 00:00:00 至 23:59:59 之间
+
+包括手动跳过和自动过期跳过（`execution_note = 'Task expired automatically'`）的任务。
+
+```dart
+/// 获取昨日跳过的任务
+Future<List<TaskModel>> getYesterdaySkippedTasks(String userId) async {
+  final now = DateTime.now();
+  final yesterdayStart = DateTime(now.year, now.month, now.day - 1);
+  final yesterdayEnd = DateTime(now.year, now.month, now.day)
+      .subtract(const Duration(milliseconds: 1));
+
+  // 查询 skipped_at 在昨天范围内的任务
+  return await _taskRepository.getTasksBySkippedDate(
+    userId, yesterdayStart, yesterdayEnd);
+}
+```
+
+#### 5.7.3 补签完成流程
+
+```dart
+/// 补签完成任务
+Future<TaskModel> makeUpCompleteTask({
+  required TaskModel task,
+  String? evaluationResult,
+  String? executionNote,
+}) async {
+  // 1. 验证任务状态必须为 skipped
+  if (task.status != TaskStatus.skipped) {
+    throw BusinessException('只有跳过的任务才能补签');
+  }
+
+  // 2. 根据任务类型处理
+  // Timer 类型：直接完成，不需要计时
+  // Counter 类型：正常递增计数
+  // Evaluation 类型：需要传入 evaluationResult
+  // Simple 类型：直接完成
+
+  // 3. completed_at 设为 task.windowEndTime（归入昨天统计）
+  // 4. 清除 skipped_at 和 skip 原因
+  // 5. 更新状态为 completed
+}
+```
+
+#### 5.7.4 补签与正常任务的隔离
+
+| 维度 | 说明 |
+|------|------|
+| 数据隔离 | 补签操作修改的是昨天的任务记录，不影响今天的任务 |
+| UI隔离 | 补签模式使用独立的任务列表，不共享正常模式的state |
+| 统计隔离 | completed_at设为昨天时间，统计归入昨天 |
+| 生成隔离 | 补签不触发任务生成逻辑，不影响今天的任务生成 |
+
+#### 5.7.5 补签业务规则
+
+1. **补签范围**：仅限skipped_at在昨天范围内的任务
+2. **Timer处理**：Timer类型任务直接完成，跳过计时环节
+3. **时间归属**：completed_at设为task.windowEndTime，让统计数据归入昨天
+4. **Undo支持**：补签操作不支持撤销
+5. **隔离保证**：补签操作不影响当前任务窗口的任何内容
+6. **模式切换**：进入补签模式显示独立的任务列表，退出后恢复正常视图
+7. **Counter任务**：补签模式下Counter任务正常递增，达到目标自动完成
+8. **Evaluation任务**：补签模式下需要选择评价后才能完成
+
 ## 6. 目标与计划管理逻辑
 
 ### 6.1 目标管理

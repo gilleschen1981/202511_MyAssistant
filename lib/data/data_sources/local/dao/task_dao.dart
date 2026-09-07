@@ -495,6 +495,82 @@ class TaskDao {
   }
 
 
+  /// Get yesterday's skipped tasks (for make-up check-in)
+  Future<List<TaskModel>> getYesterdaySkippedTasks(String userId) async {
+    final db = await _database.database;
+    final now = DateTime.now();
+    final yesterdayStart = DateTime(now.year, now.month, now.day - 1);
+    final yesterdayEnd = DateTime(now.year, now.month, now.day)
+        .subtract(const Duration(milliseconds: 1));
+
+    final startTimestamp = AppDatabase.dateTimeToTimestamp(yesterdayStart);
+    final endTimestamp = AppDatabase.dateTimeToTimestamp(yesterdayEnd);
+
+    final List<Map<String, dynamic>> maps = await db.query(
+      _tableTasks,
+      where: 'user_id = ? AND status = ? AND skipped_at >= ? AND skipped_at <= ?',
+      whereArgs: [userId, 'skipped', startTimestamp, endTimestamp],
+      orderBy: 'window_start_time ASC',
+    );
+
+    return maps.map(_mapToTask).toList();
+  }
+
+  /// Make-up complete a skipped task (skipped → completed)
+  Future<TaskModel?> makeUpCompleteTask({
+    required String taskId,
+    String? evaluationResult,
+    String? executionNote,
+  }) async {
+    final db = await _database.database;
+    final task = await getTaskById(taskId);
+    if (task == null) return null;
+
+    final completedAt = AppDatabase.dateTimeToTimestamp(task.windowEndTime);
+
+    await db.update(
+      _tableTasks,
+      {
+        'status': 'completed',
+        'completed_at': completedAt,
+        'skipped_at': null,
+        'evaluation_result': evaluationResult,
+        'execution_note': executionNote,
+        'current_count': task.config.repeatCount ?? task.currentCount,
+      },
+      where: 'id = ?',
+      whereArgs: [taskId],
+    );
+
+    return task.copyWith(
+      status: TaskStatus.completed,
+      completedAt: task.windowEndTime,
+      skippedAt: null,
+      evaluationResult: evaluationResult,
+      executionNote: executionNote,
+      currentCount: task.config.repeatCount ?? task.currentCount,
+    );
+  }
+
+  /// Update current_count for a skipped task (make-up counter increment)
+  Future<TaskModel?> makeUpUpdateProgress(String taskId, int currentCount) async {
+    final db = await _database.database;
+    final task = await getTaskById(taskId);
+    if (task == null) return null;
+    if (task.config.repeatCount == null) return task;
+
+    final newCount = currentCount.clamp(0, task.config.repeatCount!);
+
+    await db.update(
+      _tableTasks,
+      {'current_count': newCount},
+      where: 'id = ?',
+      whereArgs: [taskId],
+    );
+
+    return task.copyWith(currentCount: newCount);
+  }
+
   /// Get active task for plan (only one active task per plan)
   Future<TaskModel?> getActivePlanTask(String planId) async {
     final db = await _database.database;

@@ -333,6 +333,36 @@ enum TaskFilter {
 }
 ```
 
+### 补签相关查询
+
+#### getYesterdaySkippedTasks
+
+查询昨日被跳过的任务，用于补签模式。
+
+**查询条件**：
+- `user_id = ?`
+- `status = 'skipped'`
+- `skipped_at BETWEEN yesterdayStart AND yesterdayEnd`
+
+**SQL**:
+```sql
+SELECT * FROM tasks
+WHERE user_id = ?
+  AND status = 'skipped'
+  AND skipped_at >= ? AND skipped_at <= ?
+ORDER BY window_start_time ASC
+```
+
+#### makeUpCompleteTask
+
+补签完成任务，将skipped任务标记为completed。
+
+**更新字段**：
+- `status = 'completed'`
+- `completed_at = window_end_time`（归入昨天统计）
+- `skipped_at = NULL`
+- `execution_note = ?`（可选的补签备注）
+
 ### 1.6 User（用户）实体
 
 系统用户信息。

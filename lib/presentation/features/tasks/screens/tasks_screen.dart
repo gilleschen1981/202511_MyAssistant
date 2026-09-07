@@ -52,6 +52,120 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     }
 
     final taskState = taskListAsync.value!;
+
+    if (taskState.isMakeUpMode) {
+      return _buildMakeUpModeContent(taskState);
+    }
+
+    return _buildNormalModeContent(taskState);
+  }
+
+  Widget _buildMakeUpModeContent(TaskListState taskState) {
+    final makeUpTasks = taskState.makeUpTasks;
+
+    if (makeUpTasks.isEmpty) {
+      return _buildMakeUpEmptyState();
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      children: [
+        _buildMakeUpTaskGroup(tasks: makeUpTasks),
+      ],
+    );
+  }
+
+  Widget _buildMakeUpTaskGroup({required List<TaskModel> tasks}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                Icons.arrow_drop_down,
+                color: Colors.grey[600],
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '昨日跳过的任务 (${tasks.length})',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF424242),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              childAspectRatio: 1.5,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: tasks.length,
+            itemBuilder: (context, index) {
+              final task = tasks[index];
+              return CompactTaskCard(
+                task: task,
+                forceActiveStyle: true,
+                onTap: () {},
+                onTapWithPosition: (position) => _showMakeUpQuickMenu(task, position),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildMakeUpEmptyState() {
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.check_circle_outline,
+                size: 64,
+                color: theme.colorScheme.primary.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              '昨日没有跳过的任务',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.headlineSmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMakeUpQuickMenu(TaskModel task, Offset tapPosition) {
+    TaskQuickMenu.show(context, task, tapPosition, isMakeUpMode: true);
+  }
+
+  Widget _buildNormalModeContent(TaskListState taskState) {
     // Use filtered tasks instead of all today tasks
     final displayTasks = taskState.filteredTasks
         .where((task) => task.status != TaskStatus.deleted)

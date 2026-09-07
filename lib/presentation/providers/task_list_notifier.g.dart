@@ -77,6 +77,40 @@ final activeSessionsProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef ActiveSessionsRef = AutoDisposeProviderRef<Map<String, TimerSession>>;
+String _$isMakeUpModeHash() => r'06f0a14f0c9306264cb93b7af42d519e1f1fc6c8';
+
+/// See also [isMakeUpMode].
+@ProviderFor(isMakeUpMode)
+final isMakeUpModeProvider = AutoDisposeProvider<bool>.internal(
+  isMakeUpMode,
+  name: r'isMakeUpModeProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$isMakeUpModeHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef IsMakeUpModeRef = AutoDisposeProviderRef<bool>;
+String _$makeUpTasksHash() => r'dfe461b88e9c071aea6385cc9c636376f535ee52';
+
+/// See also [makeUpTasks].
+@ProviderFor(makeUpTasks)
+final makeUpTasksProvider = AutoDisposeProvider<List<TaskModel>>.internal(
+  makeUpTasks,
+  name: r'makeUpTasksProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$makeUpTasksHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef MakeUpTasksRef = AutoDisposeProviderRef<List<TaskModel>>;
 String _$taskStatisticsHash() => r'c15023c4e44b76222980d0646b71cfef3dbe4dbc';
 
 /// Task statistics provider
@@ -97,7 +131,7 @@ final taskStatisticsProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef TaskStatisticsRef = AutoDisposeFutureProviderRef<TaskStatistics>;
-String _$taskListNotifierHash() => r'707bcbb015ab3456304644f662236b7200568d79';
+String _$taskListNotifierHash() => r'5d2412dd1a711f8870feaa64cbf1e8c2101c922a';
 
 /// Task list notifier using modern AsyncNotifier pattern
 ///

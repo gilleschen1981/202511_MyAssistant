@@ -5,6 +5,7 @@ import 'package:myassistant/presentation/features/planning/screens/planning_scre
 import 'package:myassistant/presentation/features/review/screens/review_screen.dart';
 import 'package:myassistant/presentation/features/profile/screens/profile_screen.dart';
 import 'package:myassistant/presentation/features/planning/widgets/create_goal_dialog.dart';
+import 'package:myassistant/presentation/providers/task_list_notifier.dart';
 
 /// Main home screen with bottom navigation
 class HomeScreen extends ConsumerStatefulWidget {
@@ -28,12 +29,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isMakeUp = ref.watch(isMakeUpModeProvider);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titles[_currentIndex]),
+        leading: isMakeUp
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  ref.read(taskListNotifierProvider.notifier).exitMakeUpMode();
+                },
+                tooltip: '返回',
+              )
+            : null,
+        title: Text(isMakeUp ? '昨日补签' : _titles[_currentIndex]),
         centerTitle: true,
         actions: [
-          if (_currentIndex == 0) // Tasks screen
+          if (_currentIndex == 0 && !isMakeUp) ...[
+            IconButton(
+              icon: const Icon(Icons.edit_calendar),
+              onPressed: () {
+                ref.read(taskListNotifierProvider.notifier).enterMakeUpMode();
+              },
+              tooltip: '昨日补签',
+            ),
             IconButton(
               icon: const Icon(Icons.filter_list),
               onPressed: () {
@@ -41,6 +60,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 // TODO: Implement filter
               },
               tooltip: '筛选',
+            ),
+          ],
+          if (_currentIndex == 0 && isMakeUp)
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                ref.read(taskListNotifierProvider.notifier).exitMakeUpMode();
+              },
+              tooltip: '退出补签',
             ),
           if (_currentIndex == 1) // Planning screen
             IconButton(
@@ -65,11 +93,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
+        onDestinationSelected: isMakeUp
+            ? null
+            : (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.task_alt_outlined),

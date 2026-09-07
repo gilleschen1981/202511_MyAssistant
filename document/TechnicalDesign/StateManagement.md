@@ -1017,6 +1017,80 @@ class PomodoroStats with _$PomodoroStats {
 }
 ```
 
+### 6.3 补签模式状态管理
+
+#### 6.3.1 补签状态定义
+
+补签模式使用独立的状态，与正常任务状态分离：
+
+```dart
+@freezed
+class TaskListState with _$TaskListState {
+  const factory TaskListState({
+    // ... existing fields ...
+    @Default(false) bool isMakeUpMode,           // 是否处于补签模式
+    @Default([]) List<TaskModel> makeUpTasks,     // 昨日跳过的任务列表
+  }) = _TaskListState;
+}
+```
+
+#### 6.3.2 补签模式状态流转
+
+```
+正常模式 ──[点击补签按钮]──→ 补签模式
+  │                          │
+  │                          ├── 加载昨日跳过的任务
+  │                          ├── isMakeUpMode = true
+  │                          ├── makeUpTasks = [昨日跳过任务列表]
+  │                          │
+  │                          ├── [补签完成任务]
+  │                          │   ├── 任务状态 skipped → completed
+  │                          │   ├── completed_at = windowEndTime
+  │                          │   └── 从makeUpTasks移除
+  │                          │
+  │   ←──[点击退出按钮]──────┤
+  │                          │
+  ├── isMakeUpMode = false   │
+  ├── makeUpTasks = []       │
+  └── 正常任务列表不变       │
+```
+
+#### 6.3.3 关键Provider
+
+```dart
+// 补签模式状态
+@riverpod
+bool isMakeUpMode(Ref ref) {
+  final taskListAsync = ref.watch(taskListNotifierProvider);
+  return taskListAsync.when(
+    data: (state) => state.isMakeUpMode,
+    loading: () => false,
+    error: (_, __) => false,
+  );
+}
+
+// 补签任务列表
+@riverpod
+List<TaskModel> makeUpTasks(Ref ref) {
+  final taskListAsync = ref.watch(taskListNotifierProvider);
+  return taskListAsync.when(
+    data: (state) => state.makeUpTasks,
+    loading: () => [],
+    error: (_, __) => [],
+  );
+}
+```
+
+#### 6.3.4 补签操作方法
+
+TaskListNotifier新增方法：
+- `enterMakeUpMode()`: 查询昨日跳过的任务，切换到补签模式
+- `exitMakeUpMode()`: 清空补签列表，退出补签模式，恢复正常视图
+- `makeUpCompleteTask()`: 补签完成一个任务（skipped → completed）
+- `makeUpIncrementCount()`: 补签模式下递增Counter任务计数
+
+这些方法只操作makeUpTasks列表，不影响allTasks/todayTasks/filteredTasks等正常任务状态。
+
 ## 7. 目标与计划状态管理
 
 ### 7.1 目标状态管理

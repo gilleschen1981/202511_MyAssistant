@@ -887,6 +887,60 @@ class MockITaskRepository extends _i1.Mock implements _i10.ITaskRepository {
           as _i6.Future<bool>);
 
   @override
+  _i6.Future<List<_i4.TaskModel>> getYesterdaySkippedTasks(String? userId) =>
+      (super.noSuchMethod(
+            Invocation.method(#getYesterdaySkippedTasks, [userId]),
+            returnValue: _i6.Future<List<_i4.TaskModel>>.value(
+              <_i4.TaskModel>[],
+            ),
+          )
+          as _i6.Future<List<_i4.TaskModel>>);
+
+  @override
+  _i6.Future<_i4.TaskModel> makeUpCompleteTask({
+    required String? taskId,
+    String? evaluationResult,
+    String? executionNote,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#makeUpCompleteTask, [], {
+              #taskId: taskId,
+              #evaluationResult: evaluationResult,
+              #executionNote: executionNote,
+            }),
+            returnValue: _i6.Future<_i4.TaskModel>.value(
+              _FakeTaskModel_2(
+                this,
+                Invocation.method(#makeUpCompleteTask, [], {
+                  #taskId: taskId,
+                  #evaluationResult: evaluationResult,
+                  #executionNote: executionNote,
+                }),
+              ),
+            ),
+          )
+          as _i6.Future<_i4.TaskModel>);
+
+  @override
+  _i6.Future<_i4.TaskModel> makeUpUpdateProgress(
+    String? taskId,
+    int? currentCount,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#makeUpUpdateProgress, [taskId, currentCount]),
+            returnValue: _i6.Future<_i4.TaskModel>.value(
+              _FakeTaskModel_2(
+                this,
+                Invocation.method(#makeUpUpdateProgress, [
+                  taskId,
+                  currentCount,
+                ]),
+              ),
+            ),
+          )
+          as _i6.Future<_i4.TaskModel>);
+
+  @override
   _i6.Future<bool> deleteTask(String? taskId) =>
       (super.noSuchMethod(
             Invocation.method(#deleteTask, [taskId]),

@@ -30,6 +30,8 @@ class TaskListState with _$TaskListState {
     @Default(TaskFilter.all) TaskFilter currentFilter,
     String? error,
     UndoOperation? lastOperation,  // Track last operation for undo
+    @Default(false) bool isMakeUpMode,
+    @Default([]) List<TaskModel> makeUpTasks,
   }) = _TaskListState;
 
   factory TaskListState.initial() => const TaskListState(
@@ -425,6 +427,96 @@ class TaskListNotifier extends _$TaskListNotifier {
     }
   }
 
+  /// Enter make-up check-in mode
+  Future<void> enterMakeUpMode() async {
+    final user = ref.read(currentUserProvider);
+    if (user == null) return;
+
+    final skippedTasks = await _taskRepository.getYesterdaySkippedTasks(user.id);
+    state = AsyncValue.data(
+      state.value!.copyWith(
+        isMakeUpMode: true,
+        makeUpTasks: skippedTasks,
+      ),
+    );
+  }
+
+  /// Exit make-up check-in mode
+  void exitMakeUpMode() {
+    if (state.valueOrNull == null) return;
+    state = AsyncValue.data(
+      state.value!.copyWith(
+        isMakeUpMode: false,
+        makeUpTasks: [],
+      ),
+    );
+  }
+
+  /// Make-up complete a skipped task
+  Future<void> makeUpCompleteTask({
+    required TaskModel task,
+    String? evaluationResult,
+    String? executionNote,
+  }) async {
+    try {
+      await _executionService.makeUpCompleteTask(
+        task: task,
+        evaluationResult: evaluationResult,
+        executionNote: executionNote,
+      );
+
+      state = AsyncValue.data(
+        state.value!.copyWith(
+          makeUpTasks: state.value!.makeUpTasks
+              .where((t) => t.id != task.id)
+              .toList(),
+        ),
+      );
+    } catch (e) {
+      state = AsyncValue.data(
+        state.value!.copyWith(error: e.toString()),
+      );
+    }
+  }
+
+  /// Make-up increment count for a counter task
+  Future<TaskModel> makeUpIncrementCount(
+    TaskModel task, {
+    String? evaluationResult,
+  }) async {
+    try {
+      final updatedTask = await _executionService.makeUpIncrementCount(
+        task,
+        evaluationResult: evaluationResult,
+      );
+
+      if (updatedTask.status == TaskStatus.completed) {
+        state = AsyncValue.data(
+          state.value!.copyWith(
+            makeUpTasks: state.value!.makeUpTasks
+                .where((t) => t.id != task.id)
+                .toList(),
+          ),
+        );
+      } else {
+        state = AsyncValue.data(
+          state.value!.copyWith(
+            makeUpTasks: state.value!.makeUpTasks
+                .map((t) => t.id == updatedTask.id ? updatedTask : t)
+                .toList(),
+          ),
+        );
+      }
+
+      return updatedTask;
+    } catch (e) {
+      state = AsyncValue.data(
+        state.value!.copyWith(error: e.toString()),
+      );
+      rethrow;
+    }
+  }
+
   /// Set filter and update filtered tasks
   void setFilter(TaskFilter filter) {
     if (state.valueOrNull == null) return;
@@ -572,6 +664,26 @@ Map<String, TimerSession> activeSessions(Ref ref) {
     data: (state) => state.activeSessions,
     loading: () => {},
     error: (_, __) => {},
+  );
+}
+
+@riverpod
+bool isMakeUpMode(Ref ref) {
+  final taskListAsync = ref.watch(taskListNotifierProvider);
+  return taskListAsync.when(
+    data: (state) => state.isMakeUpMode,
+    loading: () => false,
+    error: (_, __) => false,
+  );
+}
+
+@riverpod
+List<TaskModel> makeUpTasks(Ref ref) {
+  final taskListAsync = ref.watch(taskListNotifierProvider);
+  return taskListAsync.when(
+    data: (state) => state.makeUpTasks,
+    loading: () => [],
+    error: (_, __) => [],
   );
 }
 

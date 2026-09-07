@@ -119,6 +119,19 @@ abstract class ITaskRepository {
     Map<String, dynamic>? metadata,
   });
 
+  /// Get yesterday's skipped tasks (for make-up check-in)
+  Future<List<TaskModel>> getYesterdaySkippedTasks(String userId);
+
+  /// Make-up complete a skipped task (skipped → completed)
+  Future<TaskModel> makeUpCompleteTask({
+    required String taskId,
+    String? evaluationResult,
+    String? executionNote,
+  });
+
+  /// Update progress for a skipped task (make-up counter increment)
+  Future<TaskModel> makeUpUpdateProgress(String taskId, int currentCount);
+
   /// Soft delete task (only when plan is deleted)
   /// This marks the task as deleted but preserves it in the database
   Future<bool> deleteTask(String taskId);

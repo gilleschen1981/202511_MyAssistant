@@ -90,6 +90,21 @@ mindmap-plugin: basic
     - 今日完成/剩余/跳过任务数
     - 完成率计算
 
+## 昨日补签 (MakeUpCheckInService)
+- 进入补签模式
+    - 查询昨日跳过的任务（skipped_at在昨天范围内）
+    - 切换UI为补签模式，标题显示"昨日补签"
+    - 以Active样式展示昨日跳过的任务
+- 补签执行
+    - Simple/Timer任务：直接标记为completed（Timer跳过计时）
+    - Counter任务：正常递增计数
+    - Evaluation任务：选择评价后完成
+    - completed_at设为昨天窗口内时间（window_end_time）
+    - 不支持Undo
+- 退出补签模式
+    - 恢复正常任务视图
+    - 补签操作不影响当前任务窗口内容
+
 ## 任务展示 (TasksScreen)
 - 任务列表
     - 按时间分组（今日、本周、本月、本年、具体日期）

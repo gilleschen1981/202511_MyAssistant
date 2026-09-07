@@ -26,7 +26,10 @@ mixin _$TaskListState {
       throw _privateConstructorUsedError;
   TaskFilter get currentFilter => throw _privateConstructorUsedError;
   String? get error => throw _privateConstructorUsedError;
-  UndoOperation? get lastOperation => throw _privateConstructorUsedError;
+  UndoOperation? get lastOperation =>
+      throw _privateConstructorUsedError; // Track last operation for undo
+  bool get isMakeUpMode => throw _privateConstructorUsedError;
+  List<TaskModel> get makeUpTasks => throw _privateConstructorUsedError;
 
   /// Create a copy of TaskListState
   /// with the given fields replaced by the non-null parameter values.
@@ -52,6 +55,8 @@ abstract class $TaskListStateCopyWith<$Res> {
     TaskFilter currentFilter,
     String? error,
     UndoOperation? lastOperation,
+    bool isMakeUpMode,
+    List<TaskModel> makeUpTasks,
   });
 }
 
@@ -79,6 +84,8 @@ class _$TaskListStateCopyWithImpl<$Res, $Val extends TaskListState>
     Object? currentFilter = null,
     Object? error = freezed,
     Object? lastOperation = freezed,
+    Object? isMakeUpMode = null,
+    Object? makeUpTasks = null,
   }) {
     return _then(
       _value.copyWith(
@@ -118,6 +125,14 @@ class _$TaskListStateCopyWithImpl<$Res, $Val extends TaskListState>
                 ? _value.lastOperation
                 : lastOperation // ignore: cast_nullable_to_non_nullable
                       as UndoOperation?,
+            isMakeUpMode: null == isMakeUpMode
+                ? _value.isMakeUpMode
+                : isMakeUpMode // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            makeUpTasks: null == makeUpTasks
+                ? _value.makeUpTasks
+                : makeUpTasks // ignore: cast_nullable_to_non_nullable
+                      as List<TaskModel>,
           )
           as $Val,
     );
@@ -143,6 +158,8 @@ abstract class _$$TaskListStateImplCopyWith<$Res>
     TaskFilter currentFilter,
     String? error,
     UndoOperation? lastOperation,
+    bool isMakeUpMode,
+    List<TaskModel> makeUpTasks,
   });
 }
 
@@ -169,6 +186,8 @@ class __$$TaskListStateImplCopyWithImpl<$Res>
     Object? currentFilter = null,
     Object? error = freezed,
     Object? lastOperation = freezed,
+    Object? isMakeUpMode = null,
+    Object? makeUpTasks = null,
   }) {
     return _then(
       _$TaskListStateImpl(
@@ -208,6 +227,14 @@ class __$$TaskListStateImplCopyWithImpl<$Res>
             ? _value.lastOperation
             : lastOperation // ignore: cast_nullable_to_non_nullable
                   as UndoOperation?,
+        isMakeUpMode: null == isMakeUpMode
+            ? _value.isMakeUpMode
+            : isMakeUpMode // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        makeUpTasks: null == makeUpTasks
+            ? _value._makeUpTasks
+            : makeUpTasks // ignore: cast_nullable_to_non_nullable
+                  as List<TaskModel>,
       ),
     );
   }
@@ -226,12 +253,15 @@ class _$TaskListStateImpl implements _TaskListState {
     this.currentFilter = TaskFilter.all,
     this.error,
     this.lastOperation,
+    this.isMakeUpMode = false,
+    final List<TaskModel> makeUpTasks = const [],
   }) : _allTasks = allTasks,
        _todayTasks = todayTasks,
        _activeTasks = activeTasks,
        _completedTasks = completedTasks,
        _filteredTasks = filteredTasks,
-       _activeSessions = activeSessions;
+       _activeSessions = activeSessions,
+       _makeUpTasks = makeUpTasks;
 
   final List<TaskModel> _allTasks;
   @override
@@ -288,10 +318,22 @@ class _$TaskListStateImpl implements _TaskListState {
   final String? error;
   @override
   final UndoOperation? lastOperation;
+  // Track last operation for undo
+  @override
+  @JsonKey()
+  final bool isMakeUpMode;
+  final List<TaskModel> _makeUpTasks;
+  @override
+  @JsonKey()
+  List<TaskModel> get makeUpTasks {
+    if (_makeUpTasks is EqualUnmodifiableListView) return _makeUpTasks;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_makeUpTasks);
+  }
 
   @override
   String toString() {
-    return 'TaskListState(allTasks: $allTasks, todayTasks: $todayTasks, activeTasks: $activeTasks, completedTasks: $completedTasks, filteredTasks: $filteredTasks, activeSessions: $activeSessions, currentFilter: $currentFilter, error: $error, lastOperation: $lastOperation)';
+    return 'TaskListState(allTasks: $allTasks, todayTasks: $todayTasks, activeTasks: $activeTasks, completedTasks: $completedTasks, filteredTasks: $filteredTasks, activeSessions: $activeSessions, currentFilter: $currentFilter, error: $error, lastOperation: $lastOperation, isMakeUpMode: $isMakeUpMode, makeUpTasks: $makeUpTasks)';
   }
 
   @override
@@ -324,7 +366,13 @@ class _$TaskListStateImpl implements _TaskListState {
                 other.currentFilter == currentFilter) &&
             (identical(other.error, error) || other.error == error) &&
             (identical(other.lastOperation, lastOperation) ||
-                other.lastOperation == lastOperation));
+                other.lastOperation == lastOperation) &&
+            (identical(other.isMakeUpMode, isMakeUpMode) ||
+                other.isMakeUpMode == isMakeUpMode) &&
+            const DeepCollectionEquality().equals(
+              other._makeUpTasks,
+              _makeUpTasks,
+            ));
   }
 
   @override
@@ -339,6 +387,8 @@ class _$TaskListStateImpl implements _TaskListState {
     currentFilter,
     error,
     lastOperation,
+    isMakeUpMode,
+    const DeepCollectionEquality().hash(_makeUpTasks),
   );
 
   /// Create a copy of TaskListState
@@ -361,6 +411,8 @@ abstract class _TaskListState implements TaskListState {
     final TaskFilter currentFilter,
     final String? error,
     final UndoOperation? lastOperation,
+    final bool isMakeUpMode,
+    final List<TaskModel> makeUpTasks,
   }) = _$TaskListStateImpl;
 
   @override
@@ -380,7 +432,11 @@ abstract class _TaskListState implements TaskListState {
   @override
   String? get error;
   @override
-  UndoOperation? get lastOperation;
+  UndoOperation? get lastOperation; // Track last operation for undo
+  @override
+  bool get isMakeUpMode;
+  @override
+  List<TaskModel> get makeUpTasks;
 
   /// Create a copy of TaskListState
   /// with the given fields replaced by the non-null parameter values.
