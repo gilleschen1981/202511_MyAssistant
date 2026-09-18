@@ -317,28 +317,38 @@ void main() {
   });
 
   group('Scenario: make-up scope validation', () {
-    test('getYesterdaySkippedTasks returns only yesterday skipped tasks', () async {
+    test('getYesterdaySkippedTasks returns tasks with window_end_time in yesterday', () async {
       final now = DateTime.now();
       final yesterday = now.subtract(const Duration(days: 1));
 
-      final yesterdayTask = createTask(
-        id: 'task-yesterday-skip',
+      // Task whose window ended yesterday (skipped today by auto-expire)
+      final autoSkippedTask = createTask(
+        id: 'task-auto-skipped',
         status: TaskStatus.skipped,
-        skippedAt: yesterday,
+        skippedAt: now,
+        windowStartTime: startOfDay(yesterday),
+        windowEndTime: endOfDay(yesterday),
       );
 
-      // Mock: only yesterday's task should be returned
+      // Task manually skipped yesterday
+      final manualSkippedTask = createTask(
+        id: 'task-manual-skipped',
+        status: TaskStatus.skipped,
+        skippedAt: yesterday,
+        windowStartTime: startOfDay(yesterday),
+        windowEndTime: endOfDay(yesterday),
+      );
+
       when(mockTaskRepo.getYesterdaySkippedTasks(any))
-          .thenAnswer((_) async => [yesterdayTask]);
+          .thenAnswer((_) async => [autoSkippedTask, manualSkippedTask]);
 
       final results = await mockTaskRepo.getYesterdaySkippedTasks(testUserId);
-      expect(results.length, 1);
-      expect(results.first.id, 'task-yesterday-skip');
+      expect(results.length, 2);
 
-      // Verify task skipped before yesterday is not included
+      // Both tasks have window_end_time in yesterday range
       for (final task in results) {
-        expect(task.skippedAt!.isAfter(startOfDay(yesterday)), isTrue);
-        expect(task.skippedAt!.isBefore(endOfDay(yesterday).add(const Duration(seconds: 1))), isTrue);
+        expect(task.windowEndTime.isAfter(startOfDay(yesterday).subtract(const Duration(seconds: 1))), isTrue);
+        expect(task.windowEndTime.isBefore(endOfDay(yesterday).add(const Duration(seconds: 1))), isTrue);
       }
     });
   });

@@ -496,6 +496,8 @@ class TaskDao {
 
 
   /// Get yesterday's skipped tasks (for make-up check-in)
+  /// Uses window_end_time to find tasks whose deadline was yesterday,
+  /// regardless of when they were actually marked as skipped.
   Future<List<TaskModel>> getYesterdaySkippedTasks(String userId) async {
     final db = await _database.database;
     final now = DateTime.now();
@@ -508,7 +510,7 @@ class TaskDao {
 
     final List<Map<String, dynamic>> maps = await db.query(
       _tableTasks,
-      where: 'user_id = ? AND status = ? AND skipped_at >= ? AND skipped_at <= ?',
+      where: 'user_id = ? AND status = ? AND window_end_time >= ? AND window_end_time <= ?',
       whereArgs: [userId, 'skipped', startTimestamp, endTimestamp],
       orderBy: 'window_start_time ASC',
     );
